@@ -26,7 +26,7 @@ class PoolManager:
         if pool_id is None:
             pool_id = self.config.get('POOL', 'id')
         existing_pool = self.batchclient.check_or_create_pool(pool_id)
-        if existing_pool is None:
+        if existing_pool is not None:
             return False
         for node in self.batchclient.client.compute_node.list(pool_id):
             ip = None

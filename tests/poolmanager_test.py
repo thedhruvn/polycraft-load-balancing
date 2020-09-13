@@ -5,7 +5,7 @@ from modules.Server import Server
 
 class MyTestCase(unittest.TestCase):
 
-    POOL_ID = "test7"
+    POOL_ID = "test8"
 
     def test_pool_exists(self):
 

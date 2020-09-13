@@ -6,6 +6,7 @@ import threading
 import sys
 from enum import Enum
 import subprocess
+import configparser
 
 
 class CommandSet(Enum):
@@ -13,6 +14,7 @@ class CommandSet(Enum):
     HELLO = 'hello'
     MCALIVE = 'mc_alive'
     MCSTATUS = 'mcstatus'
+    LAUNCH = 'launch_mc'
     SHUTDOWN = 'kill'
     DEALLOCATE = 'stop'
     ABORT = 'abort'
@@ -20,7 +22,7 @@ class CommandSet(Enum):
 
 class MCServer:
 
-    def __init__(self):
+    def __init__(self,  config = '../configs/azurebatch.cfg'):
         self.mcport = 25565
         self.api_port = 9007
         self.comms = None
@@ -65,7 +67,7 @@ class MCServer:
 
 
     def _launch_minecraft(self):
-        self.minecraftserver = subprocess.Popen('./run_polycraft.sh', shell=True, cwd='../scripts/', stdout=subprocess.PIPE,
+        self.minecraftserver = subprocess.Popen('./run_polycraft.sh oxygen', shell=True, cwd='scripts/', stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT,
                          bufsize=1,  # DN: 0606 Added for performance
                          universal_newlines=True,  # DN: 0606 Added for performance
@@ -75,6 +77,7 @@ class MCServer:
     def run(self):
         stay_alive = True
         self._launch_comms()
+        self._launch_minecraft()
         while stay_alive:
             next_line = self._check_queues()
 
@@ -88,6 +91,11 @@ class MCServer:
                 print(f"abort received...")
                 self.out_queue.put("Aborting...")
                 stay_alive = False
+
+            elif CommandSet.LAUNCH.value in next_line.lower():
+                print(f"(Re)Launching MC Server")
+                self._launch_minecraft()
+                self.out_queue.put("Re-launching MC Server")
 
             elif CommandSet.MCALIVE.value in next_line.lower():
                 print("is MC Alive?")
