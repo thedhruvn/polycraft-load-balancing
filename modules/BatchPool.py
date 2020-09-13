@@ -21,6 +21,7 @@ class BatchPool:
         self.credentials = configparser.ConfigParser()
         self.credentials.read(credentials)
         self.client = self._login_to_batch()
+        self.git_branch = 'master'
 
     def _login_to_batch(self):
         # credentials2 = batchauth.SharedKeyCredentials(self.credentials.get('BATCH', 'batchaccountname'),
@@ -37,6 +38,17 @@ class BatchPool:
                                                 batch_url=self.credentials.get('BATCH', 'batchserviceurl'))
 
         return batch_client
+
+    def _get_github_commands(self):
+        return [
+            'cd $HOME',
+            # 'mkdir polycraft && cd polycraft',
+            f'git clone -b {self.git_branch} --single-branch https://github.com/thedhruvn/polycraft-load-balancing.git polycraft',
+            'cd polycraft/',
+            'python -m pip install -U pip',
+            'python -m pip install -r requirements.txt',
+            'cd $HOME',
+        ]
 
     def expand_pool(self, size):
         print(f"Attempting to resize... {size}")
