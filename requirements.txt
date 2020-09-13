@@ -1,6 +1,10 @@
 adal==1.2.4
 azure-batch==9.0.0
 azure-common==1.1.25
+azure-core==1.8.1
+azure-storage-blob==12.5.0
+azure-storage-common==2.1.0
+azure-storage-file==2.1.0
 certifi==2020.6.20
 cffi==1.14.2
 chardet==3.0.4

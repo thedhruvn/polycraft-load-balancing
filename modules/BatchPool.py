@@ -50,6 +50,17 @@ class BatchPool:
             'cd $HOME',
         ]
 
+    def get_start_task_commands(self):
+
+        cmds = self._get_github_commands()
+
+        launch_server = [
+            'cd $HOME/polycraft/main/',
+            'python MCServerMain.py'
+        ]
+
+        return cmds + launch_server
+
     def expand_pool(self, size):
         print(f"Attempting to resize... {size}")
         try:
@@ -85,9 +96,9 @@ class BatchPool:
         for count in range(1, maxNodes+1):
             task = batchmodels.TaskAddParameter(
                 id=f"Server-{str(count)}",
-                command_line=helpers.wrap_commands_in_shell('linux', [
-                    '/home/polycraft/scripts/ping_wrapper_no_pp.sh oxygen 25565',
-                ]),
+                command_line=helpers.wrap_commands_in_shell('linux', self.get_start_task_commands()
+                                                            # ['/home/polycraft/scripts/ping_wrapper_no_pp.sh oxygen 25565',]
+                                                            ),
                 constraints=constraint,
                 user_identity=user_identity)
 
