@@ -2,7 +2,7 @@ import threading
 from modules.comms.TCPServers import *
 
 PORT = 9007
-HOST = "127.0.0.1"
+HOST = "0.0.0.0"
 
 """
 Thanks to the great dano: https://stackoverflow.com/questions/25245223/python-queue-queue-wont-work-in-threaded-tcp-stream-handler

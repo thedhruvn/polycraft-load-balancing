@@ -58,6 +58,8 @@ class BatchPool:
         launch_server = [
             'cd $HOME/polycraft',
             'export PYTHONPATH="$PWD"',
+            'echo "Pulled Data - Launching Python."'
+            'echo $PYTHONPATH',
             # 'cd $HOME/polycraft/main/',
             'python3 -m main.MCServerMain'
         ]
@@ -192,7 +194,7 @@ class BatchPool:
                             #     source_address_prefix='192.168.1.0/24'      # TODO: is this the right subnet?
                             # ),
                             batchmodels.NetworkSecurityGroupRule(
-                                priority=175,
+                                priority=198,
                                 access='allow',         # 'deny'
                                 source_address_prefix='*'                   # TODO: only allow access to the right ports
                             )

@@ -31,6 +31,7 @@ class MCServer:
     def _launch_comms(self):
         # in_queue = Queue()
         # out_queue = Queue()
+        print("launching comms")
         lock = threading.Lock()
         self.comms = TCPQueueCommunicator(  in_queue=self.in_queue,
                                             out_queue=self.out_queue,
@@ -113,4 +114,5 @@ class MCServer:
 
 if __name__ == '__main__':
     serv = MCServer()
+    print(f"Launching MC Listener Thread on Port: {serv.api_port}")
     serv.run()

@@ -25,7 +25,9 @@ class PoolManager:
         self.batchclient = BatchPool(config=self.raw_config_file)
         if pool_id is None:
             pool_id = self.config.get('POOL', 'id')
-        self.batchclient.check_or_create_pool(pool_id)
+        existing_pool = self.batchclient.check_or_create_pool(pool_id)
+        if existing_pool is None:
+            return False
         for node in self.batchclient.client.compute_node.list(pool_id):
             ip = None
             minecraftPort = None
@@ -41,6 +43,8 @@ class PoolManager:
 
             newSrv = Server(ip=ip, port=minecraftPort, api_port=APIPort)
             self.addServer(newSrv)
+
+        return True
 
 
     def addServer(self, server: Server):

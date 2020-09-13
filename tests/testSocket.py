@@ -6,6 +6,7 @@ import socket, random, time, json, os
 # PORT = 9010
 # HOST = "52.190.28.214"
 HOST = "52.224.82.132"
+HOST = "40.88.21.122"
 PORT = 44500
 
 movement = ['movenorth', 'movesouth', 'moveeast', 'movewest']

@@ -5,7 +5,7 @@ from modules.Server import Server
 
 class MyTestCase(unittest.TestCase):
 
-    POOL_ID = "test6"
+    POOL_ID = "test7"
 
     def test_pool_exists(self):
 
@@ -43,8 +43,10 @@ class MyTestCase(unittest.TestCase):
 
     def test_pool_manager_init(self):
         pm = PoolManager.PoolManager()
-        pm.initializeManager(MyTestCase.POOL_ID)
-        self.assertEqual(pm.servercount, 2)
+        success = pm.initializeManager(MyTestCase.POOL_ID)
+        self.assertEqual(success, True)
+        if success:
+            self.assertEqual(pm.servercount, 2)
 
     def test_add_jobs(self):
         batch = BatchPool.BatchPool()
