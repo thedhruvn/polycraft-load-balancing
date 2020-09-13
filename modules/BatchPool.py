@@ -22,6 +22,7 @@ class BatchPool:
         self.credentials.read(credentials)
         self.client = self._login_to_batch()
         self.git_branch = 'master'
+        self.pool_id = self.config.get('POOL', 'id')    #  this can get overwritten when the getPool function is run.
 
     def _login_to_batch(self):
         # credentials2 = batchauth.SharedKeyCredentials(self.credentials.get('BATCH', 'batchaccountname'),
@@ -45,8 +46,8 @@ class BatchPool:
             # 'mkdir polycraft && cd polycraft',
             f'git clone -b {self.git_branch} --single-branch https://github.com/thedhruvn/polycraft-load-balancing.git polycraft',
             'cd polycraft/',
-            'python -m pip install -U pip',
-            'python -m pip install -r requirements.txt',
+            'python3 -m pip install -U pip',
+            'python3 -m pip install -r requirements.txt',
             'cd $HOME',
         ]
 
@@ -55,8 +56,10 @@ class BatchPool:
         cmds = self._get_github_commands()
 
         launch_server = [
-            'cd $HOME/polycraft/main/',
-            'python MCServerMain.py'
+            'cd $HOME/polycraft',
+            'export PYTHONPATH="$PWD"',
+            # 'cd $HOME/polycraft/main/',
+            'python3 -m main.MCServerMain'
         ]
 
         return cmds + launch_server
@@ -74,8 +77,8 @@ class BatchPool:
             maxNodes = int(self.config.get('POOL', 'mincount'))
 
         job = batchmodels.JobAddParameter(
-            id="MC_server",
-            pool_info=batchmodels.PoolInformation(pool_id=self.config.get('POOL', 'id')),
+            id=helpers.generate_unique_resource_name(f"MC_server"),
+            pool_info=batchmodels.PoolInformation(pool_id=self.pool_id),
             on_all_tasks_complete='terminatejob',
             on_task_failure=batchmodels.OnTaskFailure.perform_exit_options_job_action
             )
@@ -109,8 +112,12 @@ class BatchPool:
         if id is None:
             id = self.config.get('POOL', 'id')
 
+        self.pool_id = id
+
         if self.client.pool.exists(id):
             return self.client.pool.get(id)
+
+
 
         api_port = self.config.get('POOL', 'api_port')
         min_count = self.config.get('POOL', 'mincount')
@@ -175,18 +182,18 @@ class BatchPool:
                     batchmodels.InboundNATPool(
                         name='api_port',
                         protocol='tcp',
-                        backend_port=int(api_port) if api_port and api_port.isdecimal() else 9010,
+                        backend_port=int(api_port) if api_port and api_port.isdecimal() else 9007,
                         frontend_port_range_start=44500,
                         frontend_port_range_end=44599,
                         network_security_group_rules=[
-                            batchmodels.NetworkSecurityGroupRule(
-                                priority=170,
-                                access='allow',
-                                source_address_prefix='192.168.1.0/24'      # TODO: is this the right subnet?
-                            ),
+                            # batchmodels.NetworkSecurityGroupRule(
+                            #     priority=170,
+                            #     access='allow',
+                            #     source_address_prefix='192.168.1.0/24'      # TODO: is this the right subnet?
+                            # ),
                             batchmodels.NetworkSecurityGroupRule(
                                 priority=175,
-                                access='deny',
+                                access='allow',         # 'deny'
                                 source_address_prefix='*'                   # TODO: only allow access to the right ports
                             )
                         ]

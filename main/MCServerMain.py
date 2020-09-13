@@ -22,7 +22,7 @@ class MCServer:
 
     def __init__(self):
         self.mcport = 25565
-        self.api_port = 9010
+        self.api_port = 9007
         self.comms = None
         self.in_queue = Queue()
         self.out_queue = Queue()

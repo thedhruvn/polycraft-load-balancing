@@ -9,6 +9,7 @@ class PoolManager:
     def __init__(self, config = '../configs/azurebatch.cfg'):
         self.config = configparser.ConfigParser()
         self.config.read(config)
+        self.raw_config_file = config
 
         # self.state = PoolManager.State(0, {})
         self.servercount = 0
@@ -20,11 +21,12 @@ class PoolManager:
         self.flag_transition = False        # Set to true during expansions OR contractions to prevent multiple triggers
         self.batchclient = None
 
-    def initializeManager(self):
-        self.batchclient = BatchPool(config=self.config)
-        id = self.config.get('POOL', 'id')
-        self.batchclient.check_or_create_pool(id)
-        for node in self.batchclient.client.compute_node.list(id):
+    def initializeManager(self, pool_id = None):
+        self.batchclient = BatchPool(config=self.raw_config_file)
+        if pool_id is None:
+            pool_id = self.config.get('POOL', 'id')
+        self.batchclient.check_or_create_pool(pool_id)
+        for node in self.batchclient.client.compute_node.list(pool_id):
             ip = None
             minecraftPort = None
             APIPort = None
