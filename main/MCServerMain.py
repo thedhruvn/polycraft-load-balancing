@@ -5,6 +5,7 @@ from queue import Queue, Empty
 import threading
 import sys
 from enum import Enum
+import subprocess
 
 
 class CommandSet(Enum):
@@ -21,10 +22,11 @@ class MCServer:
 
     def __init__(self):
         self.mcport = 25565
-        self.api_port = 9011
+        self.api_port = 9010
         self.comms = None
         self.in_queue = Queue()
         self.out_queue = Queue()
+        self.minecraftserver = None
 
     def _launch_comms(self):
         # in_queue = Queue()
@@ -60,8 +62,16 @@ class MCServer:
 
         return str(next_line, TCPServers.ENCODING)
 
-    def run(self):
 
+    def _launch_minecraft(self):
+        self.minecraftserver = subprocess.Popen('./run_polycraft.sh', shell=True, cwd='../scripts/', stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT,
+                         bufsize=1,  # DN: 0606 Added for performance
+                         universal_newlines=True,  # DN: 0606 Added for performance
+                         )
+
+
+    def run(self):
         stay_alive = True
         self._launch_comms()
         while stay_alive:
@@ -81,6 +91,17 @@ class MCServer:
             elif CommandSet.MCALIVE.value in next_line.lower():
                 print("is MC Alive?")
                 self.out_queue.put("Maybe!")
+
+            elif CommandSet.MCSTATUS.value in next_line.lower():
+                print("Testing: MCSTATUS")
+                try:
+                    serv = mcstatus.MinecraftServer.lookup("127.0.0.1:25565")
+                    val = serv.status()
+                    self.out_queue.put(val.raw)
+                except Exception as e:
+                    print("Err: Server is not up")
+                    self.out_queue.put("Err: Server is not alive")
+
 
             else:
                 print("unknown command")
