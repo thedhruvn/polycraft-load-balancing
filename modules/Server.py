@@ -95,7 +95,6 @@ class Server:
             else:
                 return
 
-
         if self.state == Server.State.STABLE or self.state == Server.State.WAITING_FOR_MERGE:
             # Check if the server is still up. Update the active player lists
             srv = MinecraftServer(self.ip, self.port)
@@ -189,9 +188,6 @@ class Server:
             self.state = Server.State.CONFIRMING_DEACTIVATION # No need to wait! Skip to the fun parts!
             self.last_request_time = datetime.datetime.now()
             #  TODO: send msg to server
-
-
-
 
     def _send_msg_to_server(self, msg):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
