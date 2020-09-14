@@ -1,6 +1,7 @@
 import azure.batch as batch
 import azure.batch.batch_auth as batchauth
 import azure.batch.models as batchmodels
+from azure.batch.models import BatchErrorException
 from azure.common.credentials import ServicePrincipalCredentials
 from misc import helpers
 import configparser
@@ -66,12 +67,36 @@ class BatchPool:
 
         return cmds + launch_server
 
+    def remove_node_from_pool(self, node_id):
+        print(f"Attempting to remove node: {node_id}")
+        try:
+            self.client.pool.remove_nodes(pool_id=self.pool_id,
+                      node_remove_parameter=batchmodels.NodeRemoveParameter(
+                            node_list=[node_id],
+                            node_deallocation_option=batchmodels.ComputeNodeDeallocationOption.terminate
+            ))
+            return True
+        except BatchErrorException as e:
+            print(f"Something went wrong! {e}")
+            return False
+        except Exception as e:
+            return False
+
     def expand_pool(self, size):
+        """
+        Resize function
+        :param size: num  of new nodes to expand towards
+        :return: True if successful; False otherwise.
+        """
         print(f"Attempting to resize... {size}")
         try:
-            self.client.pool.resize(pool_id=self.config.get('POOL', 'id'), pool_resize_parameter=size)
+            self.client.pool.resize(pool_id=self.pool_id, pool_resize_parameter=batchmodels.PoolResizeParameter(
+                target_dedicated_nodes=size
+            ))
+            return True
         except Exception as e:
             print(f"something went wrong in the resize! {e.with_traceback()}")
+            return False
 
     def launch_mc_server(self, maxNodes = None):
 
@@ -214,3 +239,4 @@ class BatchPool:
         )
 
         helpers.create_pool_if_not_exist(self.client, pool)
+        self.launch_mc_server(pool.target_dedicated_nodes)

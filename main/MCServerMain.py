@@ -7,7 +7,9 @@ import sys
 from enum import Enum
 import subprocess
 import configparser
-
+import os
+import json
+import socket
 
 class CommandSet(Enum):
 
@@ -21,10 +23,12 @@ class CommandSet(Enum):
 
 
 class MCServer:
-
     def __init__(self,  config = '../configs/azurebatch.cfg'):
+        self.config = configparser.ConfigParser()
+        self.config.read(config)
         self.mcport = 25565
-        self.api_port = 9007
+        self.api_port = int(self.config.get('POOL', 'api_port'))
+        self.minecraft_api_port = int(self.config.get('POOL', 'mc_api_port'))
         self.comms = None
         self.in_queue = Queue()
         self.out_queue = Queue()
@@ -65,6 +69,23 @@ class MCServer:
 
         return str(next_line, TCPServers.ENCODING)
 
+    def send_message_to_minecraft_api(self, msg):
+        """
+        Run this using a thread
+        :param msg: msg to send
+        :return: N/A
+        """
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect(('127.0.0.1', self.minecraft_api_port))
+            print("sending data to the server...")
+            sock.sendall(bytes(msg + "\n", "utf-8"))
+            print("data sent!")
+            received = str(sock.recv(1024), "utf-8")
+            print(f"received data from the server: {received}")
+            return True
+
+
 
     def _launch_minecraft(self):
         self.minecraftserver = subprocess.Popen('./run_polycraft.sh oxygen', shell=True, cwd='scripts/', stdout=subprocess.PIPE,
@@ -73,6 +94,21 @@ class MCServer:
                          universal_newlines=True,  # DN: 0606 Added for performance
                          )
 
+    def parse_deallocate_msg(self, line):
+        """
+        Expected Format:
+        b'stop {"IP":"123.45.12.20", "PORT":1223}\n'
+        """
+        line_end_str = os.linesep
+        if line.find('{') != -1 and line.find(line_end_str) != -1:
+            # Get timestamp:
+            json_text = line[line.find('{'):line.find(line_end_str)]
+
+            data_dict = json.loads(json_text)
+            if 'IP' in data_dict and 'PORT' in data_dict:
+                return (data_dict['IP'], data_dict['PORT'])
+
+        return None
 
     def run(self):
         stay_alive = True
@@ -100,6 +136,21 @@ class MCServer:
             elif CommandSet.MCALIVE.value in next_line.lower():
                 print("is MC Alive?")
                 self.out_queue.put("Maybe!")
+
+            elif CommandSet.DEALLOCATE.value in next_line.lower():
+                print("requesting decommission...")
+                targetIP = self.parse_deallocate_msg(next_line)
+                args = "NONE"
+                if targetIP is None:
+                    self.out_queue.put("Deallocating Server")
+                else:
+                    self.out_queue.put(f"Deallocating Server. Sending Players to {targetIP}")
+                    args = "{" + f'"IP":"{targetIP[0]}", "PORT":{targetIP[1]}' + "}"
+
+                self.send_message_to_minecraft_api(args)  ## TODO: Should this be a separate thread?
+                # dealloc = threading.Thread(target=self.send_message_to_minecraft_api, args=(args,))
+                # dealloc.setDaemon(True)
+                # dealloc.start()
 
             elif CommandSet.MCSTATUS.value in next_line.lower():
                 print("Testing: MCSTATUS")
