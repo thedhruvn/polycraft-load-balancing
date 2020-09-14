@@ -11,6 +11,7 @@ import os
 import json
 import socket
 from root import *
+from functools import total_ordering
 
 class CommandSet(Enum):
 
@@ -21,6 +22,7 @@ class CommandSet(Enum):
     SHUTDOWN = 'kill'
     DEALLOCATE = 'stop'
     ABORT = 'abort'
+    REQUESTSTATE = 'request_state'
 
 
 class MCServer:
@@ -35,6 +37,21 @@ class MCServer:
         self.out_queue = Queue()
         self.minecraftserver = None
         self.has_rest = kwargs.get('pp', True)     # By Default - run polycraft with Private Properties
+        self.state = MCServer.State.STARTING
+
+    @total_ordering
+    class State(Enum):
+        STARTING = -1
+        ACTIVE = 0
+        REQUESTED_DEACTIVATION = 1
+        DEACTIVATED = 2
+        CRASHED = 3
+
+        def __lt__(self, other):
+            if self.__class__ is other.__class__:
+                return self.value < other.value
+            return NotImplemented
+
 
     def _launch_comms(self):
         # in_queue = Queue()
@@ -106,6 +123,25 @@ class MCServer:
                             # universal_newlines=True,  # DN: 0606 Added for performance
                          )
 
+    def test_mc_status(self):
+        try:
+            serv = mcstatus.MinecraftServer.lookup("127.0.0.1:25565")
+            val = serv.status()
+            print(val.raw)
+            # self.out_queue.put(val.raw)
+            if self.state == MCServer.State.STARTING:
+                self.state = MCServer.State.ACTIVE
+            return True
+        except Exception as e:
+            if self.state == MCServer.State.ACTIVE:
+                self.state = MCServer.State.CRASHED
+            elif self.state == MCServer.State.REQUESTED_DEACTIVATION:
+                self.state = MCServer.State.DEACTIVATED
+
+            print("Err: Server is not up")
+            return False
+            # self.out_queue.put("Err: Server is not alive")
+
     def parse_deallocate_msg(self, line):
         """
         Expected Format:
@@ -147,33 +183,38 @@ class MCServer:
 
             elif CommandSet.MCALIVE.value in next_line.lower():
                 print("is MC Alive?")
-                self.out_queue.put("Maybe!")
+                if self.test_mc_status():
+                    self.out_queue.put("Server is Up!")
+                else:
+                    self.out_queue.put("Err: Server is not alive")
 
             elif CommandSet.DEALLOCATE.value in next_line.lower():
                 print("requesting decommission...")
-                targetIP = self.parse_deallocate_msg(next_line)
-                args = "NONE"
-                if targetIP is None:
-                    self.out_queue.put("Deallocating Server")
+                if not self.test_mc_status():
+                    print("Critical error! Server is not active")
+                    self.out_queue.put("Err: Server is not active")
                 else:
-                    self.out_queue.put(f"Deallocating Server. Sending Players to {targetIP}")
-                    args = "{" + f'"IP":"{targetIP[0]}", "PORT":{targetIP[1]}' + "}"
+                    targetIP = self.parse_deallocate_msg(next_line)
+                    args = "NONE"
+                    if targetIP is None:
+                        self.out_queue.put("Deallocating Server")
+                    else:
+                        self.out_queue.put(f"Deallocating Server. Sending Players to {targetIP}")
+                        args = "{" + f'"IP":"{targetIP[0]}", "PORT":{targetIP[1]}' + "}"
 
-                self.send_message_to_minecraft_api(args)  ## TODO: Should this be a separate thread?
-                # dealloc = threading.Thread(target=self.send_message_to_minecraft_api, args=(args,))
-                # dealloc.setDaemon(True)
-                # dealloc.start()
+                    self.send_message_to_minecraft_api(args)  ## TODO: Should this be a separate thread?
 
             elif CommandSet.MCSTATUS.value in next_line.lower():
                 print("Testing: MCSTATUS")
-                try:
-                    serv = mcstatus.MinecraftServer.lookup("127.0.0.1:25565")
-                    val = serv.status()
-                    self.out_queue.put(val.raw)
-                except Exception as e:
-                    print("Err: Server is not up")
+                if self.test_mc_status():
+                    self.out_queue.put("Server is Up!")
+                else:
                     self.out_queue.put("Err: Server is not alive")
 
+            elif CommandSet.REQUESTSTATE.value in next_line.lower():
+                print(f"Requesting MC State: {self.state.value}")
+                self.test_mc_status() # Update the state.
+                self.out_queue.put(f'{{"State":{self.state.value}}}')
 
             else:
                 print("unknown command")

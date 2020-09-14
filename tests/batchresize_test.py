@@ -11,8 +11,6 @@ class MyTestCase(unittest.TestCase):
         lb.main()
         self.assertEqual(True, False)
 
-
-
     def test_add_nodes(self):
 
         max_retry_initialize = 10

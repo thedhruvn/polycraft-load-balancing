@@ -161,9 +161,11 @@ class Server:
 
     def add_player(self, playerUUID, teamID):
         # Send msg to server?
-        self.teams.append(teamID)
-        self.players.append(playerUUID)
+        # self.teams.append(teamID)
+        # self.players.append(playerUUID)
         self.player_team.update({playerUUID: teamID})
+        self.players = list(self.player_team.keys())
+        self.teams = list(set(self.player_team.values()))
         self.playercount += 1
 
     def decommission(self, newServer =None):
@@ -185,6 +187,7 @@ class Server:
         else:
             print("Decommissioning this server")
             self.state = Server.State.CONFIRMING_DEACTIVATION # No need to wait! Skip to the fun parts!
+            self.last_request_time = datetime.datetime.now()
             #  TODO: send msg to server
 
 

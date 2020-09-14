@@ -100,6 +100,8 @@ class LoadBalancerMain:
             self._launch_lobby_thread()
 
         ct = 0
+        seconds_ticker = 1
+        modifier = 0
 
         while should_continue:
             # Case 1: Waiting for the MC Servers to spin up on each Node
@@ -127,6 +129,9 @@ class LoadBalancerMain:
 
             #  Case 2: All Servers are stable - we can begin handling commands sent to us from the Polycraft Lobby
             else:
+
+                seconds_ticker = datetime.datetime.now().second
+
                 next_line = self._check_queues().lower()
                 if next_line is None or next_line == '':
                     pass
@@ -143,10 +148,10 @@ class LoadBalancerMain:
                         server = self.pool.getServerForTeam(team)
                         server.add_player(id, team)
                         self.replies_to_lobby.put(self._serverResponseBuilder(server))
-
-                        # TODO: Should i remove these?
-                        for server in self.pool.servers:
-                            server.poll()
+                        modifier += 5 # Push back the time to prevent an instant reset of the playercount and team on the Server, until the player has joined
+                        # noTODO: It could take a few seconds for the player to join - just wait.
+                        # for server in self.pool.servers:
+                        #     server.poll()
                     except JSONDecodeError as e:
                         print(f"Error! BAD Json From Minecraft {e}")
                         self.replies_to_lobby.put(self._serverResponseBuilder(None))
@@ -179,7 +184,7 @@ class LoadBalancerMain:
                 #           to see if any servers need to be spun up or killed.
                 if self.state == LoadBalancerMain.State.STABLE:
 
-                    if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
+                    if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
                         for server in self.pool.servers:
                             server.poll()
 
@@ -196,7 +201,7 @@ class LoadBalancerMain:
                         all_ready = True
                         self.pool.update_server_list(id)
 
-                    if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
+                    if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
                         for server in self.pool.servers:
                             server.poll()
                             if server.state < Server.State.STABLE:
@@ -212,7 +217,7 @@ class LoadBalancerMain:
                     # Case 1: Waiting for a server to get de-initialized
                     if waiting_for_server_to_kick_players and self.target_deallocation_server is not None:
 
-                        if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
+                        if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
                             # all_ready = False
                             for server in self.pool.servers:
                                 server.poll()
@@ -230,6 +235,8 @@ class LoadBalancerMain:
                                 self.target_deallocation_server = None
                                 waiting_for_server_to_kick_players = True
 
+                if modifier > 0:
+                    modifier -= 1
 
 
     class State(Enum):

@@ -130,10 +130,12 @@ class PoolManager:
                 if server.playercount > 0 and (targetServer is None or targetServer.state != Server.State.STABLE):
                     return False # Desired server has players! needs a target server that is stable.
 
-                server.state = Server.State.REQUESTED_DEACTIVATION
-                server.decommission(targetServer)
                 if targetServer is not None:
+                    server.decommission(targetServer)
                     targetServer.state = Server.State.WAITING_FOR_MERGE
+                else:
+                    server.decommission()
+
                 self.flag_transition = True
                 return True
         return False
