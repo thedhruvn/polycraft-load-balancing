@@ -4,6 +4,7 @@ from mcstatus import MinecraftServer
 from socket import timeout
 import configparser
 import socket
+from functools import total_ordering
 
 
 """
@@ -194,6 +195,7 @@ class Server:
             print(f"received data from the server: {received}")
             # self.assertEqual(received, expected_response)
 
+    @total_ordering
     class State(Enum):
         """
         Server State holder - prevents inadvertent re-requests to a server
@@ -205,4 +207,9 @@ class Server:
         CONFIRMING_DEACTIVATION = 2     # An appropriate amount of time has passed for the server to ack. and apply the change
         DEACTIVATED = 3            # The server has acknowledged that the requested change is complete
         CRASHED = 4                 # Server is unexpectedly inaccessible.
+
+        def __lt__(self, other):
+            if self.__class__ is other.__class__:
+                return self.value < other.value
+            return NotImplemented
 

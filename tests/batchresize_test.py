@@ -1,9 +1,17 @@
 import unittest
 
 from modules import PoolManager
+from main.LoadBalancerMain import LoadBalancerMain
 import time
 
 class MyTestCase(unittest.TestCase):
+
+    def test_LB_main(self):
+        lb = LoadBalancerMain()
+        lb.main()
+        self.assertEqual(True, False)
+
+
 
     def test_add_nodes(self):
 

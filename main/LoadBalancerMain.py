@@ -10,6 +10,7 @@ from enum import Enum
 import json
 from json import JSONDecodeError
 import datetime
+from root import *
 
 class CommandSet(Enum):
 
@@ -17,19 +18,22 @@ class CommandSet(Enum):
     SERVERFORPLAYER = 'get_server_for_player'
     SERVERFORTEAM = 'get_server_for_team'
     SHUTDOWN = 'kill'
+    ADDNEW = 'add_one_server'
+    REMOVE = 'remove_one_server'
 
 
 
 class LoadBalancerMain:
 
-    def __init__(self, config=None, credentials=None):
-        self.pool = PoolManager()
+    def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'), credentials=os.path.join(ROOT_DIR, 'configs/SECRET_paleast_credentials.cfg')):
+        self.pool = PoolManager(config=config)
         self.config = self.pool.config
         self.lobbyThread = None
         self.lobbyPort = int(self.config.get('POOL', 'lobby_port'))
         self.msgs_from_lobby = queue.Queue()
         self.replies_to_lobby = queue.Queue()
         self.state = LoadBalancerMain.State.STARTING
+        self.target_deallocation_server = None
 
     def _launch_lobby_thread(self):
         # in_queue = Queue()
@@ -74,11 +78,13 @@ class LoadBalancerMain:
 
         # Deinitialization Case:
         waiting_for_server_to_kick_players = True
-        target_deallocation_server = Server(None, None, None, None)
+
+        # Flag - joining an existing server or reconnecting to a new one?
+        is_new_pool = True
 
         max_retry_initialize = 5
         id = self.config.get('POOL', 'id')
-        self.pool.initializeManager(id)
+        is_new_pool = self.pool.initializeManager(id)
         counter = 0
         initialized = self.pool.check_is_pool_steady()
         while not initialized and counter < max_retry_initialize:
@@ -93,9 +99,8 @@ class LoadBalancerMain:
             self.pool.update_server_list()
             self._launch_lobby_thread()
 
-
         while should_continue:
-
+            # Case 1: Waiting for the MC Servers to spin up on each Node
             if self.state == LoadBalancerMain.State.STARTING:
                 time.sleep(5)
                 all_ready = True
@@ -103,15 +108,12 @@ class LoadBalancerMain:
                     server.poll()
                     if server.state < Server.State.STABLE:
                         all_ready = False
-
                 if all_ready:
                     self.state = LoadBalancerMain.State.STABLE
 
-
-            elif self.state == LoadBalancerMain.State.STABLE:
-
+            #  Case 2: All Servers are stable - we can begin handling commands sent to us from the Polycraft Lobby
+            else:
                 next_line = self._check_queues().lower()
-
                 if next_line is None or next_line == '':
                     pass
 
@@ -122,13 +124,13 @@ class LoadBalancerMain:
                 elif CommandSet.SERVERFORTEAM.value in next_line:
                     try:
                         command = json.loads(next_line)
-                        id = command['playerUUID']
-                        team = command['playerTeam']
+                        id = command['playeruuid']
+                        team = command['playerteam']
                         server = self.pool.getServerForTeam(team)
                         server.add_player(id, team)
                         self.replies_to_lobby.put(self._serverResponseBuilder(server))
 
-                        #TODO: Should i remove these?
+                        # TODO: Should i remove these?
                         for server in self.pool.servers:
                             server.poll()
                     except JSONDecodeError as e:
@@ -141,55 +143,77 @@ class LoadBalancerMain:
                         print(f"Error! Unknown Problem {e}")
                         self.replies_to_lobby.put(self._serverResponseBuilder(None, "Error! Unknown Problem"))
 
+                elif CommandSet.ADDNEW.value in next_line:
+                    print(f"Adding one server to the pool")
+                    if self.__add_server():
+                        self.replies_to_lobby.put("Adding new server!")
+                    else:
+                        self.replies_to_lobby.put("Error - unable to add new server")
+
+                elif CommandSet.REMOVE.value in next_line:
+                    print(f"Removing One Server")
+                    if self.__find_and_remove_server():
+                        self.replies_to_lobby.put(f"Deallocating a server! {self.target_deallocation_server.id}")
+                    else:
+                        self.replies_to_lobby.put("Error - unable to remove a server")
+
                 else:
                     print(f"Error! Unknown command!")
                     self.replies_to_lobby.put(self._serverResponseBuilder(None, "Error! Unknown Command"))
 
-                if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
-                    for server in self.pool.servers:
-                        server.poll()
-
-                    if self.pool.check_is_pool_steady() and not self.pool.flag_transition:
-                        self.should_add_server_check()
-                        self.should_merge_servers_check()
-
-            elif self.state == LoadBalancerMain.State.INCREASING:
-                initialized = self.pool.check_is_pool_steady(id)
-                all_ready = False
-                if initialized:
-                    all_ready = True
-
-                if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
-                    for server in self.pool.servers:
-                        server.poll()
-                        if server.state < Server.State.STABLE:
-                            all_ready = False
-                    if all_ready:
-                        self.state = LoadBalancerMain.State.STABLE
-                        self.pool.flag_transition = False
-                        self.pool.update_server_list()  # TODO: Figure out when to call this.
-
-
-
-            elif self.state == LoadBalancerMain.State.DECREASING:
-                # Case 1: Waiting for a server to get de-initialized
-                if waiting_for_server_to_kick_players and target_deallocation_server is not None:
+                # Case 2a:  No Changes have been requested of the Pool. Run the Load Balancing Algorithms
+                #           to see if any servers need to be spun up or killed.
+                if self.state == LoadBalancerMain.State.STABLE:
 
                     if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
-                        # all_ready = False
                         for server in self.pool.servers:
                             server.poll()
-                            # if server.state == Server.State.DEACTIVATED:
-                            #     all_ready = True
-                    if target_deallocation_server.state == Server.State.DEACTIVATED:
-                        waiting_for_server_to_kick_players = False
 
-                # Case 2: Remove node from pool
-                else:
-                    if target_deallocation_server is not None:
-                        if self.pool.actual_remove_server(target_deallocation_server):
-                            self.pool.update_server_list()
+                        if self.pool.check_is_pool_steady() and not self.pool.flag_transition:
+                            self.should_add_server_check()
+                            self.should_merge_servers_check()
+
+                # Case 2b:  Request has been made for the Pool to increase in size. Poll to see if this has changed.
+                #           detect when the new server has MC up and running and shift back to STABLE after that.
+                elif self.state == LoadBalancerMain.State.INCREASING:
+                    initialized = self.pool.check_is_pool_steady(id)
+                    all_ready = False
+                    if initialized:
+                        all_ready = True
+
+                    if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
+                        for server in self.pool.servers:
+                            server.poll()
+                            if server.state < Server.State.STABLE:
+                                all_ready = False
+                        if all_ready:
                             self.state = LoadBalancerMain.State.STABLE
+                            self.pool.flag_transition = False
+                            self.pool.update_server_list()  # TODO: Figure out when to call this.
+
+                # Case 2c:  Load Balancer has requested a decrease in Nodes.
+                #           Detect if the decrease is happening or not.
+                elif self.state == LoadBalancerMain.State.DECREASING:
+                    # Case 1: Waiting for a server to get de-initialized
+                    if waiting_for_server_to_kick_players and self.target_deallocation_server is not None:
+
+                        if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
+                            # all_ready = False
+                            for server in self.pool.servers:
+                                server.poll()
+                                # if server.state == Server.State.DEACTIVATED:
+                                #     all_ready = True
+                        if self.target_deallocation_server.state == Server.State.DEACTIVATED:
+                            waiting_for_server_to_kick_players = False
+
+                    # Case 2: Remove node from pool
+                    else:
+                        if self.target_deallocation_server is not None:
+                            if self.pool.actual_remove_server(self.target_deallocation_server):
+                                self.pool.update_server_list()
+                                self.state = LoadBalancerMain.State.STABLE
+                                self.target_deallocation_server = None
+                                waiting_for_server_to_kick_players = True
 
 
 
@@ -204,3 +228,38 @@ class LoadBalancerMain:
 
     def should_merge_servers_check(self):
         pass
+
+    def __add_server(self):
+        if not self.pool.flag_transition and self.pool.check_is_pool_steady():
+            if self.pool.expand_pool_add_server(1):
+                self.state = LoadBalancerMain.State.INCREASING
+                return True
+        return False
+
+    def __find_and_remove_server(self):
+        list_of_empty_servers =[]
+        for server in self.pool.servers:
+            server.poll()
+
+        list_of_empty_servers = [srv for srv in self.pool.servers if srv.playercount == 0]
+
+        # Case A: we can try to remove an empty server
+        if len(list_of_empty_servers) > 0:
+            if self.pool.signal_remove_server(list_of_empty_servers[0]):
+                self.target_deallocation_server = list_of_empty_servers[0]
+                self.state = LoadBalancerMain.State.DECREASING
+                return True
+
+        # Case B: We need to merge two servers together - pick the least two filled and merge the smaller with the larger
+        # Sort our server pool by playercount:
+        self.pool.servers.sort()
+
+        # merge [0] with [1]
+        if len(self.pool.servers) > 1:
+            # TODO: check to see if [1] has room
+            if self.pool.signal_remove_server(self.pool.servers[0], self.pool.servers[1]):
+                self.target_deallocation_server = self.pool.servers[0]
+                self.state = LoadBalancerMain.State.DECREASING
+                return True
+
+        return False

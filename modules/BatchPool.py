@@ -6,11 +6,12 @@ from azure.common.credentials import ServicePrincipalCredentials
 from misc import helpers
 import configparser
 import datetime
-
+from root import *
 
 class BatchPool:
 
-    def __init__(self, config = '../configs/azurebatch.cfg', credentials = '../configs/SECRET_paleast_credentials.cfg'):
+    def __init__(self,  config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'),
+                        credentials=os.path.join(ROOT_DIR, 'configs/SECRET_paleast_credentials.cfg')):
         """
         BatchPool Object contains a reference to the pool, a credentials object to authorize pool transactions,
         and a config object to

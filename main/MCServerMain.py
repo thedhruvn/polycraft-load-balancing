@@ -10,6 +10,7 @@ import configparser
 import os
 import json
 import socket
+from root import *
 
 class CommandSet(Enum):
 
@@ -23,7 +24,7 @@ class CommandSet(Enum):
 
 
 class MCServer:
-    def __init__(self,  config = '../configs/azurebatch.cfg'):
+    def __init__(self,  config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
         self.config = configparser.ConfigParser()
         self.config.read(config)
         self.mcport = 25565

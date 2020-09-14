@@ -4,17 +4,14 @@ from azure.batch.models import BatchErrorException
 
 from modules.BatchPool import BatchPool
 from modules.Server import Server
-import time
-import queue
-import threading
-from modules.comms.TCPQueueCommunicator import TCPQueueCommunicator
-
+from root import *
 
 class PoolManager:
 
-    def __init__(self, config = '../configs/azurebatch.cfg'):
+    def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
         self.config = configparser.ConfigParser()
         self.config.read(config)
+        # self.creds_raw_file = credentials
         self.raw_config_file = config
 
         # self.state = PoolManager.State(0, {})
@@ -70,13 +67,18 @@ class PoolManager:
                         APIPort = endpoint.frontend_port
                         ip = endpoint.public_ip_address
 
-                newSrv = Server(ip=ip, port=minecraftPort, api_port=APIPort)
+                newSrv = Server(node_id=node.id, ip=ip, port=minecraftPort, api_port=APIPort)
                 newSrv.poll()   #  Update its state
                 self.add_logical_server(newSrv)
             return True
         return False
 
     def initializeManager(self, pool_id = None):
+        """
+        Connects Pool Manager to Azure batch on pool_id
+        :param pool_id: the ID of the pool to connect to. If None, uses the default from the Config file
+        :return: True if a new Pool is created; False if attaching to an existing pool
+        """
         self.batchclient = BatchPool(config=self.raw_config_file)
         if pool_id is None:
             pool_id = self.config.get('POOL', 'id')
