@@ -113,7 +113,7 @@ class LoadBalancerMain:
                     print("MC Servers are not up yet.")
                     self.replies_to_lobby.put("Err: MC Servers are not up yet.")
 
-                if datetime.datetime.now().second % 30:
+                if datetime.datetime.now().second % 30 == 0:
                     print(f"attempt: {ct} - are MC servers online?")
                     ct += 1
                     all_ready = True

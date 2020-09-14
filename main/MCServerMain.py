@@ -95,13 +95,15 @@ class MCServer:
         if not self.has_rest:
             script = './run_polycraft_no_pp.sh'
 
-        self.minecraftserver = subprocess.Popen(f'{script} oxygen',
+        print(f"Did kwargs set has_rest? {self.has_rest}")
+
+        self.minecraftserver = subprocess.Popen(f'./run_polycraft_no_pp.sh oxygen',
                             shell=True,
                             cwd=os.path.join(ROOT_DIR, 'scripts/'),
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
-                            bufsize=1,  # DN: 0606 Added for performance
-                            universal_newlines=True,  # DN: 0606 Added for performance
+                            # stdout=subprocess.PIPE,
+                            # stderr=subprocess.STDOUT,
+                            # bufsize=1,  # DN: 0606 Added for performance
+                            # universal_newlines=True,  # DN: 0606 Added for performance
                          )
 
     def parse_deallocate_msg(self, line):

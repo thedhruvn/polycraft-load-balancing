@@ -62,6 +62,7 @@ class BatchPool:
             'export PYTHONPATH="$PWD"',
             'echo "Pulled Data - Launching Python."'
             'echo $PYTHONPATH',
+            'chmod -R +x scripts/',
             # 'cd $HOME/polycraft/main/',
             'python3 -m main.MCServerMain'
         ]
