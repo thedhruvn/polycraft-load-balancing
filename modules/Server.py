@@ -80,6 +80,12 @@ class Server:
         except ConnectionRefusedError:
             print(f"Err: Connection Refused? {self.ip}:{self.port}")
             return False
+        except OSError:
+            print(f"Err: OS Error - no response: {self.ip}:{self.port}")
+            return False
+        except Exception as e:
+            print(f"Err: Something else happened:{self.ip}:{self.port} \n {e}")
+            return False
 
     def poll(self):
         if self.state == Server.State.INITIALIZING:

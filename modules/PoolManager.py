@@ -22,7 +22,7 @@ class PoolManager:
         self.player_to_server_lookup = {}
 
         self.flag_transition = False        # Set to true during expansions OR contractions to prevent multiple triggers
-        self.batchclient = None
+        self.batchclient: BatchPool = BatchPool(config=self.raw_config_file)
 
     def check_is_pool_steady(self, pool_id=None):
 
@@ -79,7 +79,7 @@ class PoolManager:
         :param pool_id: the ID of the pool to connect to. If None, uses the default from the Config file
         :return: True if a new Pool is created; False if attaching to an existing pool
         """
-        self.batchclient = BatchPool(config=self.raw_config_file)
+        # self.batchclient = BatchPool(config=self.raw_config_file)
         if pool_id is None:
             pool_id = self.config.get('POOL', 'id')
         existing_pool = self.batchclient.check_or_create_pool(pool_id)
@@ -96,11 +96,13 @@ class PoolManager:
         :return: True if the pool's resize was successfully submitted to Azure
         """
         if count > 0 and self.batchclient is not None:
+            new_srv_count = count
             pool = self.batchclient.check_or_create_pool(self.batchclient.pool_id)
             count += len(self.servers)
             if pool is not None and 'steady' in pool.allocation_state.value and not self.flag_transition:
                 if self.batchclient.expand_pool(count):
                     self.flag_transition = True
+                    self.batchclient.launch_mc_server(new_srv_count)
                     return True
 
         # TODO:

@@ -99,17 +99,31 @@ class LoadBalancerMain:
             self.pool.update_server_list()
             self._launch_lobby_thread()
 
+        ct = 0
+
         while should_continue:
             # Case 1: Waiting for the MC Servers to spin up on each Node
             if self.state == LoadBalancerMain.State.STARTING:
-                time.sleep(5)
-                all_ready = True
-                for server in self.pool.servers:
-                    server.poll()
-                    if server.state < Server.State.STABLE:
-                        all_ready = False
-                if all_ready:
-                    self.state = LoadBalancerMain.State.STABLE
+
+                next_line = self._check_queues().lower()
+                if next_line is None or next_line == '':
+                    pass
+
+                else:
+                    print("MC Servers are not up yet.")
+                    self.replies_to_lobby.put("Err: MC Servers are not up yet.")
+
+                if datetime.datetime.now().second % 30:
+                    print(f"attempt: {ct} - are MC servers online?")
+                    ct += 1
+                    all_ready = True
+                    for server in self.pool.servers:
+                        server.poll()
+                        if server.state < Server.State.STABLE:
+                            all_ready = False
+                    if all_ready:
+                        self.state = LoadBalancerMain.State.STABLE
+                        print("Servers Online!")
 
             #  Case 2: All Servers are stable - we can begin handling commands sent to us from the Polycraft Lobby
             else:
@@ -180,6 +194,7 @@ class LoadBalancerMain:
                     all_ready = False
                     if initialized:
                         all_ready = True
+                        self.pool.update_server_list(id)
 
                     if datetime.datetime.now().second % int(self.config.get('LOAD', 'secondsBetweenMCPoll')):
                         for server in self.pool.servers:

@@ -24,7 +24,7 @@ class CommandSet(Enum):
 
 
 class MCServer:
-    def __init__(self,  config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
+    def __init__(self,  config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'), **kwargs):
         self.config = configparser.ConfigParser()
         self.config.read(config)
         self.mcport = 25565
@@ -34,6 +34,7 @@ class MCServer:
         self.in_queue = Queue()
         self.out_queue = Queue()
         self.minecraftserver = None
+        self.has_rest = kwargs.get('pp', True)     # By Default - run polycraft with Private Properties
 
     def _launch_comms(self):
         # in_queue = Queue()
@@ -89,10 +90,18 @@ class MCServer:
 
 
     def _launch_minecraft(self):
-        self.minecraftserver = subprocess.Popen('./run_polycraft.sh oxygen', shell=True, cwd='scripts/', stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT,
-                         bufsize=1,  # DN: 0606 Added for performance
-                         universal_newlines=True,  # DN: 0606 Added for performance
+
+        script = './run_polycraft.sh'
+        if not self.has_rest:
+            script = './run_polycraft_no_pp.sh'
+
+        self.minecraftserver = subprocess.Popen(f'{script} oxygen',
+                            shell=True,
+                            cwd=os.path.join(ROOT_DIR, 'scripts/'),
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            bufsize=1,  # DN: 0606 Added for performance
+                            universal_newlines=True,  # DN: 0606 Added for performance
                          )
 
     def parse_deallocate_msg(self, line):
@@ -173,6 +182,6 @@ class MCServer:
 
 
 if __name__ == '__main__':
-    serv = MCServer()
+    serv = MCServer(pp=False)
     print(f"Launching MC Listener Thread on Port: {serv.api_port}")
     serv.run()
