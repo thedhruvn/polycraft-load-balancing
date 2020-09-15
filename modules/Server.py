@@ -5,14 +5,15 @@ from socket import timeout
 import configparser
 import socket
 from functools import total_ordering
-
+import os
+from root import *
 
 """
 Holds a server object and can run the main() function for the server object
 """
 class Server:
 
-    def __init__(self, ip, port, api_port, node_id, reattach = False, config = '../configs/azurebatch.cfg'):
+    def __init__(self, ip, port, api_port, node_id, reattach = False, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
         self.ip = ip
         self.port = port
         self.api = api_port
