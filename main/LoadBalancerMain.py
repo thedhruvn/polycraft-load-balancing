@@ -316,3 +316,8 @@ class LoadBalancerMain:
                 return True
 
         return False
+
+
+if __name__ == '__main__':
+    lb = LoadBalancerMain()
+    lb.main()
