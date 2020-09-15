@@ -12,7 +12,7 @@ Holds a server object and can run the main() function for the server object
 """
 class Server:
 
-    def __init__(self, ip, port, api_port, node_id, config = '../configs/azurebatch.cfg'):
+    def __init__(self, ip, port, api_port, node_id, reattach = False, config = '../configs/azurebatch.cfg'):
         self.ip = ip
         self.port = port
         self.api = api_port
@@ -24,7 +24,10 @@ class Server:
         self.players = []
         self.player_team = {}
         self.playercount = 0
-        self.state = Server.State.INITIALIZING
+        if not reattach:
+            self.state = Server.State.INITIALIZING
+        else:
+            self.state = Server.State.STABLE
         self.last_request_time = None
 
     def __hash__(self):
@@ -87,6 +90,11 @@ class Server:
             print(f"Err: Something else happened:{self.ip}:{self.port} \n {e}")
             return False
 
+    def _get_team_for_player(self, playerName):
+        # TODO: implement REST API here.
+        return -1
+
+
     def poll(self):
         if self.state == Server.State.INITIALIZING:
             #  Check to see if the server is up yet:
@@ -103,14 +111,23 @@ class Server:
                 stat = srv.status()
 
                 self.playercount = stat.players.online
-                playersdetected = []
+                playersdetected = {}
                 if stat.players.sample is not None:
                     for player in stat.players.sample:
-                        playersdetected.append(player.id)
+                        playersdetected.update({player.id: player.name})
 
                 # Update player and team arrays
-                self.player_team = {player: team for player, team in self.player_team.items() if player in playersdetected}
-                self.players = self.player_team.keys()
+                self.player_team = {player: team for player, team in self.player_team.items() if player in playersdetected.keys()}
+
+                if len(self.player_team) < len(playersdetected):
+                    players_to_search = {player: name for player, name in playersdetected.items() if player not in self.player_team}
+                    for player, name in players_to_search.items():
+                        team = self._get_team_for_player(name)
+                        self.player_team.update({player: team})
+
+
+                self.players = list(self.player_team.keys())
+                self.playercount = len(self.players)
                 self.teams = list(set(self.player_team.values()))
                 return
 
@@ -153,6 +170,13 @@ class Server:
                 # The server isn't down, but the status return doesn't have a players or online segment
                 print(f"Something weird with Status response: {stat.raw}")
                 return
+
+        if self.state == Server.State.CRASHED:
+            print(f"This server is crashed! {self.id} - is it back up?")
+            if self._is_mc_alive():
+                self.state = Server.State.STABLE
+            # TODO: Send msg to restart the server.
+            return
 
         else:
             print(f"This server has been deactivated! Please don't run  me anymore!")

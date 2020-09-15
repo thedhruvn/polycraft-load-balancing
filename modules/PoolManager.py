@@ -41,6 +41,13 @@ class PoolManager:
         except Exception as e:
             return False
 
+    def poll_servers_and_update(self):
+        self.teams_to_servers.clear()
+        for server in self.servers:
+            server.poll()
+            self.teams_to_servers.update({team: server for team in server.teams})
+
+
     def update_server_list(self, pool_id=None):
 
         # pool = self.batchclient.client.pool.get(pool_id)
@@ -49,7 +56,6 @@ class PoolManager:
                 pool_id = self.batchclient.pool_id
             else:
                 return False
-
 
         if self.check_is_pool_steady(pool_id):
             self.servers.clear()
@@ -110,7 +116,7 @@ class PoolManager:
 
     def actual_remove_server(self, server: Server):
         if self.check_is_pool_steady() and self.flag_transition:
-            if server.state == Server.State.DEACTIVATED:
+            if server.state == Server.State.DEACTIVATED or server.state == Server.State.CRASHED:
                 if self.batchclient.remove_node_from_pool(server.node_id):
                     self.flag_transition = False
                     self.servers.remove(server)
@@ -158,7 +164,7 @@ class PoolManager:
 
         return self.teams_to_servers[team]
 
-    def __get_next_available_server(self):
+    def __get_next_available_server(self) -> Server:
         """
         :return: server with least number of players on it (for a new team to spawn) that is running
         """
@@ -166,6 +172,7 @@ class PoolManager:
         for srv in self.servers:
             if srv.eligible_for_new_teams():
                 return srv
+        raise
 
 
 

@@ -12,20 +12,21 @@ from json import JSONDecodeError
 import datetime
 from root import *
 
-class CommandSet(Enum):
 
+class CommandSet(Enum):
     HELLO = 'hello'
     SERVERFORPLAYER = 'get_server_for_player'
     SERVERFORTEAM = 'get_server_for_team'
     SHUTDOWN = 'kill'
     ADDNEW = 'add_one_server'
     REMOVE = 'remove_one_server'
-
+    LISTSERVERS = 'list_all'
 
 
 class LoadBalancerMain:
 
-    def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'), credentials=os.path.join(ROOT_DIR, 'configs/SECRET_paleast_credentials.cfg')):
+    def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'),
+                 credentials=os.path.join(ROOT_DIR, 'configs/SECRET_paleast_credentials.cfg')):
         self.pool = PoolManager(config=config)
         self.config = self.pool.config
         self.lobbyThread = None
@@ -140,6 +141,16 @@ class LoadBalancerMain:
                     print("SUCCESS")
                     self.replies_to_lobby.put("SUCCESS")
 
+                elif CommandSet.LISTSERVERS.value in next_line:
+                    print("Listing all servers")
+                    result = "{"
+                    for server in self.pool.servers:
+                        result += f'"{server.id}":{{"api_port":{server.api}, "players":{server.playercount}, "state":"{server.state.name}"}},'
+                    for team, server in self.pool.teams_to_servers.items():
+                        result += f'"team_map":{{"{team}":"{server.id}"}},'
+                    result += "}"
+                    self.replies_to_lobby.put(result)
+
                 elif CommandSet.SERVERFORTEAM.value in next_line:
                     try:
                         command = json.loads(next_line)
@@ -148,7 +159,7 @@ class LoadBalancerMain:
                         server = self.pool.getServerForTeam(team)
                         server.add_player(id, team)
                         self.replies_to_lobby.put(self._serverResponseBuilder(server))
-                        modifier += 5 # Push back the time to prevent an instant reset of the playercount and team on the Server, until the player has joined
+                        modifier += 5  # Push back the time to prevent an instant reset of the playercount and team on the Server, until the player has joined
                         # noTODO: It could take a few seconds for the player to join - just wait.
                         # for server in self.pool.servers:
                         #     server.poll()
@@ -184,9 +195,17 @@ class LoadBalancerMain:
                 #           to see if any servers need to be spun up or killed.
                 if self.state == LoadBalancerMain.State.STABLE:
 
-                    if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
+                    if self.poll_servers(seconds_ticker, modifier):
+                        crashList = []
+                        # if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
+                        #     crashList = []
                         for server in self.pool.servers:
-                            server.poll()
+                        #         server.poll()
+                            if server.state == Server.State.CRASHED:
+                                crashList.append(server)
+
+                        for server in crashList:
+                            self.__remove_specific_server(server)
 
                         if self.pool.check_is_pool_steady() and not self.pool.flag_transition:
                             self.should_add_server_check()
@@ -201,9 +220,11 @@ class LoadBalancerMain:
                         all_ready = True
                         self.pool.update_server_list(id)
 
-                    if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
+                    if self.poll_servers(seconds_ticker, modifier):
+                        # if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
+                        #     for server in self.pool.servers:
+                        #         server.poll()
                         for server in self.pool.servers:
-                            server.poll()
                             if server.state < Server.State.STABLE:
                                 all_ready = False
                         if all_ready:
@@ -217,12 +238,13 @@ class LoadBalancerMain:
                     # Case 1: Waiting for a server to get de-initialized
                     if waiting_for_server_to_kick_players and self.target_deallocation_server is not None:
 
-                        if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
-                            # all_ready = False
-                            for server in self.pool.servers:
-                                server.poll()
-                                # if server.state == Server.State.DEACTIVATED:
-                                #     all_ready = True
+                        self.poll_servers(seconds_ticker, modifier)
+                        # if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
+                        #     # all_ready = False
+                        #     for server in self.pool.servers:
+                        #         server.poll()
+                        # if server.state == Server.State.DEACTIVATED:
+                        #     all_ready = True
                         if self.target_deallocation_server.state == Server.State.DEACTIVATED:
                             waiting_for_server_to_kick_players = False
 
@@ -238,6 +260,11 @@ class LoadBalancerMain:
                 if modifier > 0:
                     modifier -= 1
 
+    def poll_servers(self, seconds_ticker, modifier=0):
+        if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
+            self.pool.poll_servers_and_update()
+            return True
+        return False
 
     class State(Enum):
         STARTING = -1
@@ -258,8 +285,12 @@ class LoadBalancerMain:
                 return True
         return False
 
+    def __remove_specific_server(self, server):
+        if self.pool.actual_remove_server(self.target_deallocation_server):
+            self.pool.update_server_list()
+
     def __find_and_remove_server(self):
-        list_of_empty_servers =[]
+        list_of_empty_servers = []
         for server in self.pool.servers:
             server.poll()
 

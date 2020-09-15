@@ -57,6 +57,13 @@ class BatchPool:
 
         cmds = self._get_github_commands()
 
+        copy_mods = [
+            'cd $HOME/polycraft/mods',
+            'rm /home/polycraft/oxygen/mods/*.jar',
+            'cp *.jar /home/polycraft/oxygen/mods',
+            'cd $HOME'
+        ]
+
         launch_server = [
             'cd $HOME/polycraft',
             'export PYTHONPATH="$PWD"',
@@ -67,7 +74,7 @@ class BatchPool:
             'python3 -m main.MCServerMain'
         ]
 
-        return cmds + launch_server
+        return cmds + copy_mods + launch_server
 
     def remove_node_from_pool(self, node_id):
         print(f"Attempting to remove node: {node_id}")
