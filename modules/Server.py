@@ -5,6 +5,8 @@ from socket import timeout
 import configparser
 import socket
 from functools import total_ordering
+from modules.comms.LoadBalancerToMCMain import LBFormattedMsg
+from main.MCServerMain import CommandSet as MCCommands
 import os
 from root import *
 import threading
@@ -208,26 +210,31 @@ class Server:
             self.state = Server.State.REQUESTED_DEACTIVATION
             self.last_request_time = datetime.datetime.now()
             print("Transitioning Players to a new server")
-            #  TODO: send msg to server
+            msg = LBFormattedMsg(MCCommands.DEALLOCATE, f'{{"IP":"{newServer.ip}", "PORT":{newServer.port}}}')
+            self.send_msg_threaded_to_server(msg)
+
+            #  noTODO: send msg to server
         else:
             print("Decommissioning this server")
             self.state = Server.State.CONFIRMING_DEACTIVATION # No need to wait! Skip to the fun parts!
             self.last_request_time = datetime.datetime.now()
-            #  TODO: send msg to server
+            msg = LBFormattedMsg(MCCommands.DEALLOCATE, "test Dealloc")
+            self.send_msg_threaded_to_server(msg)
+            #  noTODO: send msg to server
 
-    def send_msg_threaded_to_server(self, msg):
+    def send_msg_threaded_to_server(self, msg: LBFormattedMsg):
 
         thread = threading.Thread(target=self.send_msg_to_server, args=(msg,))
         thread.setDaemon(True)
         thread.start()
         return True
 
-    def send_msg_to_server(self, msg):
+    def send_msg_to_server(self, lb_fmt_msg: LBFormattedMsg):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.connect((self.ip, self.port))
+            sock.connect((self.ip, self.api))
 
             print("sending data to the server...")
-            sock.sendall(bytes(msg + "\n", "utf-8"))
+            sock.sendall(bytes(lb_fmt_msg.msg + "\n", "utf-8"))
             print("data sent!")
             received = str(sock.recv(1024), "utf-8")
             print(f"received data from the server: {received}")

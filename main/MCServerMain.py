@@ -12,17 +12,7 @@ import json
 import socket
 from root import *
 from functools import total_ordering
-
-
-class MCCommandSet(Enum):
-    """
-    Commands acceptable by Minecraft. If not passed, the default is SAY
-    """
-    SAY = "SAY"
-    KILL = "KILL"
-    DEALLOC = "DEALLOC"
-
-
+from modules.comms.MCMainToPCW import MCCommandSet, FormattedMsg
 
 class CommandSet(Enum):
 
@@ -35,22 +25,6 @@ class CommandSet(Enum):
     ABORT = 'abort'
     REQUESTSTATE = 'request_state'
     PASSMSG = 'pass_msg'
-
-
-class FormattedMsg:
-
-    def __init__(self, cmd, msg=None):
-        self.msg = self.__format_msg_to_minecraft(cmd, msg)
-
-    @staticmethod
-    def __format_msg_to_minecraft(self, cmd: MCCommandSet, value: str = ""):
-        if value is None:
-            value = "hello"
-
-        if cmd is None:
-            cmd = MCCommandSet.SAY
-
-        return f'{{"cmd":"{cmd.value}", "arg":"{value}"}}'
 
 
 class MCServer:

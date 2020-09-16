@@ -1,5 +1,5 @@
 import unittest
-import modules.comms.LobbyCommunicator as LobbyCom
+import modules.comms.TCPQueueCommunicator as LobbyCom
 from queue import Queue
 import threading
 import socket
@@ -11,7 +11,7 @@ class MyTestCase(unittest.TestCase):
         in_queue = Queue()
         out_queue = Queue()
         lock = threading.Lock()
-        tm_thread = LobbyCom.LobbyCommunicator(in_queue=in_queue,
+        tm_thread = LobbyCom.TCPQueueCommunicator(in_queue=in_queue,
                                       out_queue=out_queue,
                                       tm_lock=lock)
 

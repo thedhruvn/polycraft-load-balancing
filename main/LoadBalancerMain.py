@@ -2,6 +2,7 @@ from modules.PoolManager import PoolManager
 from modules.Server import Server
 from modules.comms import TCPServers
 from modules.comms.TCPQueueCommunicator import TCPQueueCommunicator
+from modules.comms.LoadBalancerToMCMain import LBFormattedMsg
 import queue
 import threading
 import time
@@ -146,11 +147,19 @@ class LoadBalancerMain:
 
                 elif CommandSet.QUERYMC.value in next_line:
                     print("sending msg to MCServer...")
+                    valid = False
                     for server in self.pool.servers:
-                        if server.port in next_line:
+                        if str(server.port) in next_line:
                             msg = re.sub(rf"{CommandSet.QUERYMC.value}|{server.port}", "", next_line).strip()
+                            msg = LBFormattedMsg(MCCommands.PASSMSG, msg)
                             server.send_msg_threaded_to_server(msg)
                             self.replies_to_lobby.put("Sent to Server!")
+                            valid = True
+                            break
+
+                    if not valid:
+                        self.replies_to_lobby.put("Err: Invalid Server addr.")
+
 
                 elif CommandSet.LISTSERVERS.value in next_line:
                     print("Listing all servers")
