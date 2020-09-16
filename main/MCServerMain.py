@@ -13,6 +13,17 @@ import socket
 from root import *
 from functools import total_ordering
 
+
+class MCCommandSet(Enum):
+    """
+    Commands acceptable by Minecraft. If not passed, the default is SAY
+    """
+    SAY = "SAY"
+    KILL = "KILL"
+    DEALLOC = "DEALLOC"
+
+
+
 class CommandSet(Enum):
 
     HELLO = 'hello'
@@ -23,6 +34,23 @@ class CommandSet(Enum):
     DEALLOCATE = 'stop'
     ABORT = 'abort'
     REQUESTSTATE = 'request_state'
+    PASSMSG = 'pass_msg'
+
+
+class FormattedMsg:
+
+    def __init__(self, cmd, msg=None):
+        self.msg = self.__format_msg_to_minecraft(cmd, msg)
+
+    @staticmethod
+    def __format_msg_to_minecraft(self, cmd: MCCommandSet, value: str = ""):
+        if value is None:
+            value = "hello"
+
+        if cmd is None:
+            cmd = MCCommandSet.SAY
+
+        return f'{{"cmd":"{cmd.value}", "arg":"{value}"}}'
 
 
 class MCServer:
@@ -88,17 +116,33 @@ class MCServer:
 
         return str(next_line, TCPServers.ENCODING)
 
-    def send_message_to_minecraft_api(self, msg):
+    def check_and_send_msg(self, msg: FormattedMsg):
         """
-        Run this using a thread
-        :param msg: msg to send
-        :return: N/A
+        Wrapper to send messages by first checking to see if the server is up/receivable
+        :param msg:
+        :return:
+        """
+        if self.test_mc_status():
+            return self.send_message_to_minecraft_api(msg)
+        return False
+
+    def send_message_to_minecraft_api(self, msg: FormattedMsg):
+        """
+        Ensure that the server is up before trying to run this command.
+
+        Valid cmd for MC:
+        SAY - prints messages to all players on the server
+        DEALLOC - shuts down the server in 10 minutes, transitioning players to ip VALUE
+        KILL - immediately shuts down the server
+
+        :param msg: msg to send - must be a FormattedMsg obj with format: {"cmd": "{CMDNAME}", "arg": "{VALUE}"}
+        :return: N/A    # TODO: capture returns from MC?
         """
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect(('127.0.0.1', self.minecraft_api_port))
             print("sending data to the server...")
-            sock.sendall(bytes(msg + "\n", "utf-8"))
+            sock.sendall(bytes(msg.msg + "\n", "utf-8"))
             print("data sent!")
             received = str(sock.recv(1024), "utf-8")
             print(f"received data from the server: {received}")
@@ -198,11 +242,24 @@ class MCServer:
                     args = "NONE"
                     if targetIP is None:
                         self.out_queue.put("Deallocating Server")
+                        msg = FormattedMsg(MCCommandSet.KILL)
+                        self.send_message_to_minecraft_api(msg)
                     else:
                         self.out_queue.put(f"Deallocating Server. Sending Players to {targetIP}")
                         args = "{" + f'"IP":"{targetIP[0]}", "PORT":{targetIP[1]}' + "}"
+                        msg = FormattedMsg(MCCommandSet.DEALLOC, f"{targetIP[0]}:{targetIP[1]}")
+                        self.send_message_to_minecraft_api(msg)
+                                            ## TODO: Should this be a separate thread?
 
-                    self.send_message_to_minecraft_api(args)  ## TODO: Should this be a separate thread?
+            elif CommandSet.PASSMSG.value in next_line.lower():
+                print("Sending msg to Server")
+                msg = FormattedMsg(MCCommandSet.SAY, next_line)
+                if self.check_and_send_msg(msg):
+                    self.out_queue.put(f"Sent message to server")
+                else:
+                    self.out_queue.put(f"Error: Server is not active!")
+
+
 
             elif CommandSet.MCSTATUS.value in next_line.lower():
                 print("Testing: MCSTATUS")

@@ -11,6 +11,8 @@ import json
 from json import JSONDecodeError
 import datetime
 from root import *
+import re
+from main.MCServerMain import CommandSet as MCCommands
 
 
 class CommandSet(Enum):
@@ -21,6 +23,7 @@ class CommandSet(Enum):
     ADDNEW = 'add_one_server'
     REMOVE = 'remove_one_server'
     LISTSERVERS = 'list_all'
+    QUERYMC = 'poll_mc'
 
 
 class LoadBalancerMain:
@@ -140,6 +143,14 @@ class LoadBalancerMain:
                 elif CommandSet.HELLO.value in next_line:
                     print("SUCCESS")
                     self.replies_to_lobby.put("SUCCESS")
+
+                elif CommandSet.QUERYMC.value in next_line:
+                    print("sending msg to MCServer...")
+                    for server in self.pool.servers:
+                        if server.port in next_line:
+                            msg = re.sub(rf"{CommandSet.QUERYMC.value}|{server.port}", "", next_line).strip()
+                            server.send_msg_threaded_to_server(msg)
+                            self.replies_to_lobby.put("Sent to Server!")
 
                 elif CommandSet.LISTSERVERS.value in next_line:
                     print("Listing all servers")

@@ -122,7 +122,7 @@ class BatchPool:
         self.client.job.add(job)
 
         constraint = batchmodels.TaskConstraints(
-            retention_time=datetime.timedelta(minutes=30),
+            retention_time=datetime.timedelta(hours=24),
         )
 
         user_identity = batch.models.UserIdentity(

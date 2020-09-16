@@ -7,6 +7,7 @@ import socket
 from functools import total_ordering
 import os
 from root import *
+import threading
 
 """
 Holds a server object and can run the main() function for the server object
@@ -214,7 +215,14 @@ class Server:
             self.last_request_time = datetime.datetime.now()
             #  TODO: send msg to server
 
-    def _send_msg_to_server(self, msg):
+    def send_msg_threaded_to_server(self, msg):
+
+        thread = threading.Thread(target=self.send_msg_to_server, args=(msg,))
+        thread.setDaemon(True)
+        thread.start()
+        return True
+
+    def send_msg_to_server(self, msg):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect((self.ip, self.port))
 
