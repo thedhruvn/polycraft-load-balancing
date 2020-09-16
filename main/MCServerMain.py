@@ -8,6 +8,7 @@ from enum import Enum
 import subprocess
 import configparser
 import os
+import re
 import json
 import socket
 from root import *
@@ -88,16 +89,18 @@ class MCServer:
         except Empty:
             pass
 
-        return str(next_line, TCPServers.ENCODING)
+        return str(next_line, TCPServers.ENCODING, 'ignore')
 
     def check_and_send_msg(self, msg: FormattedMsg):
         """
         Wrapper to send messages by first checking to see if the server is up/receivable
         :param msg:
-        :return:
+        :return: False if the send message thread could not be launched.
         """
         if self.test_mc_status():
-            return self.send_message_to_minecraft_api(msg)
+                thread = threading.Thread(target=self.send_message_to_minecraft_api, args=(msg,))
+                thread.start()
+                return True
         return False
 
     def send_message_to_minecraft_api(self, msg: FormattedMsg):
@@ -115,7 +118,7 @@ class MCServer:
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect(('127.0.0.1', self.minecraft_api_port))
-            print("sending data to the server...")
+            print(f"sending data to the server: {msg.msg}")
             sock.sendall(bytes(msg.msg + "\n", "utf-8"))
             print("data sent!")
             received = str(sock.recv(1024), "utf-8")
@@ -123,6 +126,12 @@ class MCServer:
             return True
 
 
+    def __check_and_launch_minecraft(self):
+
+        if self.test_mc_status():
+            return
+        else:
+            return self._launch_minecraft()
 
     def _launch_minecraft(self):
 
@@ -132,7 +141,7 @@ class MCServer:
 
         print(f"Did kwargs set has_rest? {self.has_rest}")
 
-        self.minecraftserver = subprocess.Popen(f'./run_polycraft_no_pp.sh oxygen',
+        self.minecraftserver = subprocess.Popen(f'{script} oxygen',
                             shell=True,
                             cwd=os.path.join(ROOT_DIR, 'scripts/'),
                             # stdout=subprocess.PIPE,
@@ -172,14 +181,30 @@ class MCServer:
 
             data_dict = json.loads(json_text)
             if 'IP' in data_dict and 'PORT' in data_dict:
-                return (data_dict['IP'], data_dict['PORT'])
+                return data_dict['IP'], data_dict['PORT']
+
+        return None
+
+    def altparse_deallocate_msg(self, line):
+        """
+        Expected Format:
+        b'stop {"IP":"123.45.12.20", "PORT":1223}\n'
+        """
+        line_end_str = os.linesep
+        if line.find('{') != -1 and line.find('}') != -1:
+            # Get timestamp:
+            json_text = line[line.find('{'):line.find('}')+1]
+
+            data_dict = json.loads(json_text)
+            if 'IP' in data_dict and 'PORT' in data_dict:
+                return data_dict['IP'], data_dict['PORT']
 
         return None
 
     def run(self):
         stay_alive = True
         self._launch_comms()
-        self._launch_minecraft()
+        self.__check_and_launch_minecraft()
         while stay_alive:
             next_line = self._check_queues()
 
@@ -212,22 +237,28 @@ class MCServer:
                     print("Critical error! Server is not active")
                     self.out_queue.put("Err: Server is not active")
                 else:
-                    targetIP = self.parse_deallocate_msg(next_line)
+                    targetIP = self.altparse_deallocate_msg(next_line)
                     args = "NONE"
                     if targetIP is None:
                         self.out_queue.put("Deallocating Server")
                         msg = FormattedMsg(MCCommandSet.KILL)
-                        self.send_message_to_minecraft_api(msg)
+                        self.check_and_send_msg(msg)
+
+                        # self.send_message_to_minecraft_api(msg)
                     else:
                         self.out_queue.put(f"Deallocating Server. Sending Players to {targetIP}")
                         args = "{" + f'"IP":"{targetIP[0]}", "PORT":{targetIP[1]}' + "}"
                         msg = FormattedMsg(MCCommandSet.DEALLOC, f"{targetIP[0]}:{targetIP[1]}")
-                        self.send_message_to_minecraft_api(msg)
-                                            ## TODO: Should this be a separate thread?
+                        self.check_and_send_msg(msg)
+                        # self.send_message_to_minecraft_api(msg)
+
+                    ## Update State
+                    self.state = MCServer.State.REQUESTED_DEACTIVATION
 
             elif CommandSet.PASSMSG.value in next_line.lower():
                 print("Sending msg to Server")
-                msg = FormattedMsg(MCCommandSet.SAY, next_line)
+                nl = re.sub(rf"{CommandSet.PASSMSG.value}", "", next_line.lower()).strip()
+                msg = FormattedMsg(MCCommandSet.SAY, nl)
                 if self.check_and_send_msg(msg):
                     self.out_queue.put(f"Sent message to server")
                 else:

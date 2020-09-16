@@ -70,7 +70,7 @@ class LoadBalancerMain:
         except queue.Empty:
             pass
 
-        return str(next_line, TCPServers.ENCODING)
+        return str(next_line, TCPServers.ENCODING, 'ignore')
 
     def _serverResponseBuilder(self, server: Server = None, msg: str = ""):
         if server is None:
@@ -174,10 +174,10 @@ class LoadBalancerMain:
                 elif CommandSet.SERVERFORTEAM.value in next_line:
                     try:
                         command = json.loads(next_line)
-                        id = command['playeruuid']
+                        uid = command['playeruuid']
                         team = command['playerteam']
                         server = self.pool.getServerForTeam(team)
-                        server.add_player(id, team)
+                        server.add_player(uid, team)
                         self.replies_to_lobby.put(self._serverResponseBuilder(server))
                         modifier += 5  # Push back the time to prevent an instant reset of the playercount and team on the Server, until the player has joined
                         # noTODO: It could take a few seconds for the player to join - just wait.
@@ -234,11 +234,11 @@ class LoadBalancerMain:
                 # Case 2b:  Request has been made for the Pool to increase in size. Poll to see if this has changed.
                 #           detect when the new server has MC up and running and shift back to STABLE after that.
                 elif self.state == LoadBalancerMain.State.INCREASING:
-                    initialized = self.pool.check_is_pool_steady(id)
+                    initialized = self.pool.check_is_pool_steady()
                     all_ready = False
                     if initialized:
                         all_ready = True
-                        self.pool.update_server_list(id)
+                        self.pool.update_server_list()
 
                     if self.poll_servers(seconds_ticker, modifier):
                         # if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:

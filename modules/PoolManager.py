@@ -47,10 +47,12 @@ class PoolManager:
             server.poll()
             self.teams_to_servers.update({team: server for team in server.teams})
 
-
     def update_server_list(self, pool_id=None):
-
-        # pool = self.batchclient.client.pool.get(pool_id)
+        """
+        Polls all servers in a given pool and updates the PoolManager's list of servers
+        :param pool_id: pool to poll - defaults to the BatchClient.pool_id value
+        :return: False if the pool is undefined or if the pool is not at Steady State.
+        """
         if pool_id is None:
             if self.batchclient:
                 pool_id = self.batchclient.pool_id
