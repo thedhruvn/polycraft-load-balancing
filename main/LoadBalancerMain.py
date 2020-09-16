@@ -160,7 +160,6 @@ class LoadBalancerMain:
                     if not valid:
                         self.replies_to_lobby.put("Err: Invalid Server addr.")
 
-
                 elif CommandSet.LISTSERVERS.value in next_line:
                     print("Listing all servers")
                     result = "{"
