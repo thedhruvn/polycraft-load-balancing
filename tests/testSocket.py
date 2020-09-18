@@ -8,9 +8,9 @@ import socket, random, time, json, os
 # HOST = "52.224.82.132"
 # HOST = "40.88.21.122"
 HOST = "127.0.0.1"
-PORT = 9007
-# HOST = "52.188.177.102"
-# PORT = 44500
+PORT = 9008
+# HOST = "52.146.54.238"
+# PORT = 44501
 
 movement = ['movenorth', 'movesouth', 'moveeast', 'movewest']
 

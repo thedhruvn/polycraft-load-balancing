@@ -140,6 +140,10 @@ class Server:
                 print(f"Error! Is Server Down?")
                 self.state = Server.State.CRASHED
                 return
+            except ConnectionRefusedError:
+                print(f"Err: Connection Refused? {self.ip}:{self.port}")
+                self.state = Server.State.CRASHED
+                return False
             except KeyError:
                 # The status return doesn't have a players or online segment
                 print(f"Something weird with Status response: {stat.raw}")
@@ -167,6 +171,10 @@ class Server:
                     return
             except timeout:
                 # The Server is down
+                print(f"Server {self.id} has been deactivated")
+                self.state = Server.State.DEACTIVATED
+                return
+            except ConnectionRefusedError:
                 print(f"Server {self.id} has been deactivated")
                 self.state = Server.State.DEACTIVATED
                 return
