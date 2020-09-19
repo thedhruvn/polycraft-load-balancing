@@ -91,6 +91,7 @@ class LoadBalancerMain:
         id = self.config.get('POOL', 'id')
         is_new_pool = self.pool.initializeManager(id)
         counter = 0
+        self.pool.poll_servers_and_update()
         initialized = self.pool.check_is_pool_steady()
         while not initialized and counter < max_retry_initialize:
             print("waiting for initialization...")
@@ -216,29 +217,60 @@ class LoadBalancerMain:
 
                     if self.poll_servers(seconds_ticker, modifier):
                         crashList = []
+                        restartAPIlist = []
                         # if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
                         #     crashList = []
                         for server in self.pool.servers:
                         #         server.poll()
                             if server.state == Server.State.CRASHED:
                                 crashList.append(server)
+                            if server.state == Server.State.STABLE_BUT_TASK_FAILED:
+                                restartAPIlist.append(server)
 
+                        if len(crashList) > 0:
+                            self.pool.flag_transition = True
                         for server in crashList:
                             self.__remove_specific_server(server)
+
+                        for server in restartAPIlist:
+                            self.pool.batchclient.add_task_to_start_server()
+                            self.state = LoadBalancerMain.State.RESTARTING_TASK
 
                         if self.pool.check_is_pool_steady() and not self.pool.flag_transition:
                             self.should_add_server_check()
                             self.should_merge_servers_check()
 
+                elif self.state ==  LoadBalancerMain.State.RESTARTING_TASK:
+                    if self.poll_servers(seconds_ticker, modifier):
+                        all_nodes_stable = True
+                        # Continue monitoring for crashes
+                        crashList = []
+                        for server in self.pool.servers:
+                            if server.state == Server.State.CRASHED:
+                                crashList.append(server)
+                            if server.state == Server.State.STABLE_BUT_TASK_FAILED:
+                                all_nodes_stable = False
+
+                        if all_nodes_stable:
+                            self.state = LoadBalancerMain.State.STABLE
+
+                        for server in crashList:
+                            self.__remove_specific_server(server)
+
+
+
                 # Case 2b:  Request has been made for the Pool to increase in size. Poll to see if this has changed.
                 #           detect when the new server has MC up and running and shift back to STABLE after that.
                 elif self.state == LoadBalancerMain.State.INCREASING:
                     initialized = self.pool.check_is_pool_steady()
-                    all_ready = False
                     if initialized:
-                        all_ready = True
                         self.pool.update_server_list()
+                        self.state = LoadBalancerMain.State.WAITING_FOR_NEW_SERVERS
 
+                # Case 2b - 2:  The Pool is Steady, but the MC Server hasn't started yet. Poll occasionally until
+                #               its online!
+                elif self.state == LoadBalancerMain.State.WAITING_FOR_NEW_SERVERS:
+                    all_ready = True
                     if self.poll_servers(seconds_ticker, modifier):
                         # if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
                         #     for server in self.pool.servers:
@@ -249,25 +281,19 @@ class LoadBalancerMain:
                         if all_ready:
                             self.state = LoadBalancerMain.State.STABLE
                             self.pool.flag_transition = False
-                            self.pool.update_server_list()  # TODO: Figure out when to call this.
+                            self.pool.update_server_list()
+                            # self.pool.update_server_list()  # noTODO: Figure out when to call this.
 
                 # Case 2c:  Load Balancer has requested a decrease in Nodes.
                 #           Detect if the decrease is happening or not.
                 elif self.state == LoadBalancerMain.State.DECREASING:
                     # Case 1: Waiting for a server to get de-initialized
                     if waiting_for_server_to_kick_players and self.target_deallocation_server is not None:
+                        if self.poll_servers(seconds_ticker, modifier):
+                            if self.target_deallocation_server.state == Server.State.DEACTIVATED:
+                                waiting_for_server_to_kick_players = False
 
-                        self.poll_servers(seconds_ticker, modifier)
-                        # if (seconds_ticker - modifier) % int(self.config.get('LOAD', 'secondsBetweenMCPoll')) == 0:
-                        #     # all_ready = False
-                        #     for server in self.pool.servers:
-                        #         server.poll()
-                        # if server.state == Server.State.DEACTIVATED:
-                        #     all_ready = True
-                        if self.target_deallocation_server.state == Server.State.DEACTIVATED:
-                            waiting_for_server_to_kick_players = False
-
-                    # Case 2: Remove node from pool
+                    # Case 2: Remove node from pool - the server has shut down.
                     else:
                         if self.target_deallocation_server is not None:
                             if self.pool.actual_remove_server(self.target_deallocation_server):
@@ -286,10 +312,13 @@ class LoadBalancerMain:
         return False
 
     class State(Enum):
-        STARTING = -1
+        STARTING = -2
+        WAIT_FOR_BOOT = -1
         STABLE = 0
-        DECREASING = 1
-        INCREASING = 2
+        RESTARTING_TASK = 1
+        DECREASING = 2
+        INCREASING = 3
+        WAITING_FOR_NEW_SERVERS = 4
 
     def should_add_server_check(self):
         pass
@@ -305,7 +334,7 @@ class LoadBalancerMain:
         return False
 
     def __remove_specific_server(self, server):
-        if self.pool.actual_remove_server(self.target_deallocation_server):
+        if self.pool.actual_remove_server(server):
             self.pool.update_server_list()
 
     def __find_and_remove_server(self):

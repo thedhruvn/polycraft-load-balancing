@@ -5,6 +5,8 @@ from azure.batch.models import BatchErrorException
 from modules.BatchPool import BatchPool
 from modules.Server import Server
 from root import *
+from enum import Enum
+
 
 class PoolManager:
 
@@ -21,45 +23,71 @@ class PoolManager:
         self.player_to_team_lookup = {}
         self.player_to_server_lookup = {}
 
-        self.flag_transition = False        # Set to true during expansions OR contractions to prevent multiple triggers
+        self.flag_transition = False  # Set to true during expansions OR contractions to prevent multiple triggers
         self.batchclient: BatchPool = BatchPool(config=self.raw_config_file)
+        self.state = PoolManager.State.TRANSITIONING
 
-    def check_is_pool_steady(self, pool_id=None):
+    class State(Enum):
+        STABLE = 0
+        TRANSITIONING = 1
 
-        if pool_id is None:
-            if self.batchclient:
-                pool_id = self.batchclient.pool_id
-            else:
-                return False
-        try:
-            pool = self.batchclient.client.pool.get(pool_id)
-            if pool is not None and 'steady' in pool.allocation_state.value:
-                return True
-            return False
-        except BatchErrorException as e:
-            return False
-        except Exception as e:
-            return False
+    def check_is_pool_steady(self):
+        #self.poll_servers_and_update()
+        return self.state == PoolManager.State.STABLE
+        # if pool_id is None:
+        #     if self.batchclient:
+        #         pool_id = self.batchclient.pool_id
+        #     else:
+        #         return False
+        # try:
+        #     pool = self.batchclient.client.pool.get(pool_id)
+        #     if pool is not None and 'steady' in pool.allocation_state.value:
+        #         return True
+        #     return False
+        # except BatchErrorException as e:
+        #     return False
+        # except Exception as e:
+        #     print(e)
+        #     return False
 
     def poll_servers_and_update(self):
-        self.teams_to_servers.clear()
-        for server in self.servers:
-            server.poll()
-            self.teams_to_servers.update({team: server for team in server.teams})
+        """
+        Updates the pool State and Updates all Team-to-server mappings based on logged-in teams
+        """
 
-    def update_server_list(self, pool_id=None):
+        if self.batchclient:
+            pool_id = self.batchclient.pool_id
+            try:
+                pool = self.batchclient.client.pool.get(pool_id)
+                if pool is not None and 'steady' in pool.allocation_state.value:
+                    self.state = PoolManager.State.STABLE
+                else:
+                    self.state = PoolManager.State.TRANSITIONING
+            except BatchErrorException as e:
+                self.state = PoolManager.State.TRANSITIONING
+            except Exception as e:
+                print(e)
+                self.state = PoolManager.State.TRANSITIONING
+
+            self.teams_to_servers.clear()
+            for server in self.servers:
+                server.poll()
+                self.teams_to_servers.update({team: server for team in server.teams})
+        else:
+            self.state = PoolManager.State.TRANSITIONING
+
+    def update_server_list(self):
         """
         Polls all servers in a given pool and updates the PoolManager's list of servers
-        :param pool_id: pool to poll - defaults to the BatchClient.pool_id value
         :return: False if the pool is undefined or if the pool is not at Steady State.
         """
-        if pool_id is None:
-            if self.batchclient:
-                pool_id = self.batchclient.pool_id
-            else:
-                return False
+        # if pool_id is None:
+        if self.batchclient:
+            pool_id = self.batchclient.pool_id
+        else:
+            return False
 
-        if self.check_is_pool_steady(pool_id):
+        if self.check_is_pool_steady():
             self.servers.clear()
             self.servercount = 0
             for node in self.batchclient.client.compute_node.list(pool_id):
@@ -76,12 +104,12 @@ class PoolManager:
                         ip = endpoint.public_ip_address
 
                 newSrv = Server(node_id=node.id, ip=ip, port=minecraftPort, api_port=APIPort)
-                newSrv.poll()   #  Update its state
+                newSrv.poll()  # Update its state
                 self.add_logical_server(newSrv)
             return True
         return False
 
-    def initializeManager(self, pool_id = None):
+    def initializeManager(self, pool_id=None):
         """
         Connects Pool Manager to Azure batch on pool_id
         :param pool_id: the ID of the pool to connect to. If None, uses the default from the Config file
@@ -92,7 +120,7 @@ class PoolManager:
             pool_id = self.config.get('POOL', 'id')
         existing_pool = self.batchclient.check_or_create_pool(pool_id)
         if existing_pool is None:
-            return True     # This should be the case for a newly created pool
+            return True  # This should be the case for a newly created pool
 
         return False
 
@@ -110,7 +138,8 @@ class PoolManager:
             if pool is not None and 'steady' in pool.allocation_state.value and not self.flag_transition:
                 if self.batchclient.expand_pool(count):
                     self.flag_transition = True
-                    self.batchclient.launch_mc_server(new_srv_count)
+                    for i in range(0, new_srv_count):
+                        self.batchclient.add_task_to_start_server()  # Add task to the ongoing server.
                     return True
 
         # TODO:
@@ -136,7 +165,7 @@ class PoolManager:
         if self.check_is_pool_steady() and not self.flag_transition:
             if server.state == Server.State.STABLE:
                 if server.playercount > 0 and (targetServer is None or targetServer.state != Server.State.STABLE):
-                    return False # Desired server has players! needs a target server that is stable.
+                    return False  # Desired server has players! needs a target server that is stable.
 
                 if targetServer is not None:
                     server.decommission(targetServer)
@@ -175,6 +204,3 @@ class PoolManager:
             if srv.eligible_for_new_teams():
                 return srv
         raise
-
-
-

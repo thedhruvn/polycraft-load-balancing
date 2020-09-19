@@ -45,7 +45,7 @@ class MyTestCase(unittest.TestCase):
             should_continue = counter < max_retry_initialize
 
             if should_continue:
-                pool.batchclient.launch_mc_server(2)
+                pool.batchclient.start_mc_server_job_pool(2)
                 time.sleep(5)
                 initialized = pool.update_server_list(id)
                 # self._launch_lobby_thread()

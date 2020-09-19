@@ -72,7 +72,7 @@ class MyTestCase(unittest.TestCase):
     def test_add_jobs(self):
         batch = BatchPool.BatchPool()
         batch.check_or_create_pool(MyTestCase.POOL_ID)
-        batch.launch_mc_server(2)
+        batch.start_mc_server_job_pool(2)
 
 if __name__ == '__main__':
     unittest.main()

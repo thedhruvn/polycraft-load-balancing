@@ -25,6 +25,9 @@ class BatchPool:
         self.client = self._login_to_batch()
         self.git_branch = 'master'
         self.pool_id = self.config.get('POOL', 'id')    #  this can get overwritten when the getPool function is run.
+        self.job_id = ""
+        self.globalTaskCounter = 0
+
 
     def _login_to_batch(self):
         # credentials2 = batchauth.SharedKeyCredentials(self.credentials.get('BATCH', 'batchaccountname'),
@@ -107,19 +110,7 @@ class BatchPool:
             print(f"something went wrong in the resize! {e.with_traceback()}")
             return False
 
-    def launch_mc_server(self, maxNodes = None):
-
-        if maxNodes is None:
-            maxNodes = int(self.config.get('POOL', 'mincount'))
-
-        job = batchmodels.JobAddParameter(
-            id=helpers.generate_unique_resource_name(f"MC_server"),
-            pool_info=batchmodels.PoolInformation(pool_id=self.pool_id),
-            on_all_tasks_complete='terminatejob',
-            on_task_failure=batchmodels.OnTaskFailure.perform_exit_options_job_action
-            )
-
-        self.client.job.add(job)
+    def add_task_to_start_server(self):
 
         constraint = batchmodels.TaskConstraints(
             retention_time=datetime.timedelta(hours=24),
@@ -132,16 +123,53 @@ class BatchPool:
                 elevation_level=batch.models.ElevationLevel.admin)
         )
 
-        for count in range(1, maxNodes+1):
-            task = batchmodels.TaskAddParameter(
-                id=f"Server-{str(count)}",
-                command_line=helpers.wrap_commands_in_shell('linux', self.get_start_task_commands()
-                                                            # ['/home/polycraft/scripts/ping_wrapper_no_pp.sh oxygen 25565',]
-                                                            ),
-                constraints=constraint,
-                user_identity=user_identity)
+        task = batchmodels.TaskAddParameter(
+            id=helpers.generate_unique_resource_name(f"Server-{str(self.globalTaskCounter)}"),
+            # id=f"Server-{str(self.globalTaskCounter)}",
+            command_line=helpers.wrap_commands_in_shell('linux', self.get_start_task_commands()),
+            constraints=constraint,
+            user_identity=user_identity)
 
-            self.client.task.add(job_id=job.id, task=task)
+        self.client.task.add(job_id=self.job_id, task=task)
+        self.globalTaskCounter += 1
+
+    def start_mc_server_job_pool(self, maxNodes = None):
+
+        if maxNodes is None:
+            maxNodes = int(self.config.get('POOL', 'mincount'))
+
+        job = batchmodels.JobAddParameter(
+            id=helpers.generate_unique_resource_name(f"MC_server"),
+            pool_info=batchmodels.PoolInformation(pool_id=self.pool_id),
+            # on_all_tasks_complete='terminatejob',
+            on_task_failure=batchmodels.OnTaskFailure.perform_exit_options_job_action
+            )
+
+        self.client.job.add(job)
+        self.job_id = job.id
+        #
+        # constraint = batchmodels.TaskConstraints(
+        #     retention_time=datetime.timedelta(hours=24),
+        # )
+        #
+        # user_identity = batch.models.UserIdentity(
+        #     # user_name='azureuser',
+        #     auto_user=batch.models.AutoUserSpecification(
+        #         scope=batch.models.AutoUserScope.pool,
+        #         elevation_level=batch.models.ElevationLevel.admin)
+        # )
+
+        for count in range(1, maxNodes+1):
+            self.add_task_to_start_server()
+            # task = batchmodels.TaskAddParameter(
+            #     id=f"Server-{str(count)}",
+            #     command_line=helpers.wrap_commands_in_shell('linux', self.get_start_task_commands()
+            #     # ['/home/polycraft/scripts/ping_wrapper_no_pp.sh oxygen 25565',]
+            #                                                 ),
+            #     constraints=constraint,
+            #     user_identity=user_identity)
+            #
+            # self.client.task.add(job_id=job.id, task=task)
 
 
     def check_or_create_pool(self, id=None):
@@ -151,6 +179,15 @@ class BatchPool:
         self.pool_id = id
 
         if self.client.pool.exists(id):
+            found_job = False
+            # Update the Job ID here
+            for job in self.client.job.list():
+                if job.pool_info.pool_id == self.pool_id:
+                    self.job_id = job.id
+                    found_job = True
+                    break
+            if not found_job:
+                self.start_mc_server_job_pool()     # Restart Jobs for this pool - this is necessary!
             return self.client.pool.get(id)
 
 
@@ -186,6 +223,13 @@ class BatchPool:
                 'cd /home/polycraft',
                 'chmod -R 777 *',
                 'rm /home/polycraft/oxygen/mods/polycraft-1.5.2-20200909-21.14.01.jar',
+                # Stop the crontabs from running
+                'sudo touch /var/spool/cron/crontabs/polycraft && sudo chmod 0 /var/spool/cron/crontabs/polycraft',
+                # 'apt-get install software-properties-common',
+                # 'apt-add-repository universe',
+                # Mount the Polycraft Game FileShare
+                'sudo apt-get install cifs-utils && sudo mkdir -p /mnt/PolycraftGame/',
+                f'mount -t cifs //polycraftbestbatch.file.core.windows.net/best-batch-round-1-test /mnt/PolycraftGame -o vers=3.0,username={self.credentials.get("Storage", "storageaccountname")},password={self.credentials.get("Storage", "storageaccountkey")},dir_mode=0777,file_mode=0777,serverino && ls /mnt/PolycraftGame',
             ]),
             wait_for_success=True,
             # user_accounts=users,
@@ -248,4 +292,4 @@ class BatchPool:
         )
 
         helpers.create_pool_if_not_exist(self.client, pool)
-        self.launch_mc_server(pool.target_dedicated_nodes)
+        self.start_mc_server_job_pool(pool.target_dedicated_nodes)
