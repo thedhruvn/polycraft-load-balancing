@@ -135,9 +135,9 @@ class MCServer:
 
     def _launch_minecraft(self):
 
-        script = './run_polycraft.sh'
-        if not self.has_rest:
-            script = './run_polycraft_no_pp.sh'
+        script = './run_polycraft_no_pp.sh'
+        # if not self.has_rest:
+        #     script = './run_polycraft_no_pp.sh'
 
         print(f"Did kwargs set has_rest? {self.has_rest}")
 
