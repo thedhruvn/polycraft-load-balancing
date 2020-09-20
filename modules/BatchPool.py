@@ -62,7 +62,6 @@ class BatchPool:
 
         copy_mods = [
             'cd $HOME/polycraft/mods',
-            'rm /home/polycraft/oxygen/mods/*.jar',
             'cp *.jar /home/polycraft/oxygen/mods',
             'cd $HOME/polycraft/scripts/',
             'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
