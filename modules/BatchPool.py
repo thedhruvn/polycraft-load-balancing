@@ -240,9 +240,10 @@ class BatchPool:
                 # Copy the default world file to the right folder
                 'cp /mnt/PolycraftGame/testsR1/worlds/base_utd.tar.gz /home/polycraft/oxygen/',
                 'cd /home/polycraft/oxygen/',
-                'rm -r helium/',
+                'sudo rm -r helium',
                 'gzip -d /home/polycraft/oxygen/base_utd.tar.gz',
-                'tar -xf base_utd.tar',                       # NOTE: The folder inside here is called helium!
+                'tar -xf base_utd.tar',
+                'chmod -R 777 helium/',     #  NOTE: The folder inside here is called helium!
             ]),
             wait_for_success=True,
             # user_accounts=users,
