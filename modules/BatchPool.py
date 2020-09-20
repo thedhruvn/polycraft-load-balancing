@@ -223,6 +223,7 @@ class BatchPool:
         # Thank you Ask Ubuntu https://askubuntu.com/a/373478
         wait_for_locks = 'while sudo fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo "Waiting for release of apt locks"; sleep 2; done; '
 
+        # NOTE: Always use DOUBLE QUOTES within commands as azure prepends the entire string with a single quote.
         start_task = batchmodels.StartTask(
             command_line=helpers.wrap_commands_in_shell('linux', [
                 'whoami',

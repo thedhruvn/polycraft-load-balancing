@@ -35,7 +35,7 @@ class Server:
         self.last_request_time = None
 
         self.countfailures = 0
-        self.maxFailsBeforeDown = 30
+        self.maxFailsBeforeDown = 13
         self.mcServer = MinecraftServer(self.ip, self.port)
 
     def __hash__(self):

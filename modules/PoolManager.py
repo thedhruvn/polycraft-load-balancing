@@ -57,9 +57,25 @@ class PoolManager:
                 pool = self.batchclient.client.pool.get(pool_id)
                 if pool is not None and 'steady' in pool.allocation_state.value:
                     # Case: Pool is stable but the load balancer is intending to change that soon
-                    if self.state != PoolManager.State.FLAG_TO_SHIFT:
-                        # Only set to stable if the Pool doesn't have a plan to shift
-                        self.state = PoolManager.State.STABLE
+
+                    flag_nodes_not_ready = False
+                    # Go through the nodes and see if they aren't running/idle.
+                    for node in self.batchclient.client.compute_node.list(pool_id):
+                        if node.state in [ComputeNodeState.leaving_pool, ComputeNodeState.offline,
+                                          ComputeNodeState.unusable]:
+                            continue  # Skip compute nodes that are leaving, shutdown, or otherwise useless.
+
+                        if node.state not in [ComputeNodeState.running, ComputeNodeState.idle]:
+                            flag_nodes_not_ready = True
+
+                    if flag_nodes_not_ready:
+                        self.state = PoolManager.State.TRANSITIONING
+
+                    else:
+                      if self.state != PoolManager.State.FLAG_TO_SHIFT:
+                          # Only set to stable if the Pool doesn't have a plan to shift. Otherwise, let the planner reset this flag.
+                          self.state = PoolManager.State.STABLE
+
 
                 # Case: Pool is still in startup
                 elif self.state == PoolManager.State.STARTING:
@@ -96,9 +112,10 @@ class PoolManager:
         if self.check_is_pool_steady():
             self.servers.clear()
             self.servercount = 0
-            for node in self.batchclient.client.compute_node.list(pool_id):     #noTODO: Skip based on Node ComputeState?
+            for node in self.batchclient.client.compute_node.list(pool_id):
                 if node.state in [ComputeNodeState.leaving_pool, ComputeNodeState.offline, ComputeNodeState.unusable]:
                     continue  # Skip compute nodes that are leaving, shutdown, or otherwise useless.
+
                 ip = None
                 minecraftPort = None
                 APIPort = None
@@ -163,7 +180,6 @@ class PoolManager:
         if self.state in [PoolManager.State.STABLE, PoolManager.State.FLAG_TO_SHIFT]:  # Run if stable (due to crash) or if the pool is flagged to shrink
             if server.state == Server.State.DEACTIVATED or server.state == Server.State.CRASHED:
                 if self.batchclient.remove_node_from_pool(server.node_id):   #  CONFIRMED this triggers allocation_state change!
-
                     #  print(f"Pool State: {self.batchclient.client.pool.get(self.batchclient.pool_id).allocation_state.value}")
                     self.servers.remove(server)
                     return True
