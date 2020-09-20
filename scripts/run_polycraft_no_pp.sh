@@ -20,15 +20,4 @@ fi
 cd /home/polycraft/$1
 
 # Then, run polycraft in a screen.  Uncomment the correct command line to use either local or remote REST info
-
-# Use local file for whitelist and private property data
-#screen -d -m -S $1 java -jar -Xms1G -Xmx6000M -XX:+UseConcMarkSweepGC -d64 -Dportal.rest.url=file:///home/polycraft/$1/rest/ -Danalytics.enabled=true -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher-7.29.15.jar nogui
-
-# Call REST service for whitelist and private property data
-#screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Dportal.rest.url=http://10.0.0.7:9000/rest -Danalytics.enabled=true -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui
-
-# Call REST service for whitelist and private property data
-screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Danalytics.enabled=true -Dbest.debug=true -DisBestServer=true =Dbest.default.directory=/mnt/PolycraftGame/testsR1/ -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui
-#screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Danalytics.enabled=true -Dbest.debug=true -DisBestServer=true =Dbest.default.directory=/mnt/PolycraftGame/testsR1/ -Dportal.rest.url=http://polycraft-beta.cloudapp.net/rest -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui
-
-#screen -d -m -S "oxygen" java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Danalytics.enabled=true -Dbest.debug=true -DisBestServer=true =Dbest.default.directory=/mnt/PolycraftGame/testsR1/ -Dportal.rest.url=http://polycraft-beta.cloudapp.net/rest -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:oxygen.gc /home/polycraft/oxygen/polycraft-launcher.jar nogui
+screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Dbest.default.directory=/mnt/PolycraftGame/testsR1/ -Danalytics.enabled=true -DisBestServer=true -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui

@@ -201,8 +201,6 @@ class BatchPool:
                 self.start_mc_server_job_pool()     # Restart Jobs for this pool - this is necessary!
             return self.client.pool.get(id)
 
-
-
         api_port = self.config.get('POOL', 'api_port')
         min_count = self.config.get('POOL', 'mincount')
 
