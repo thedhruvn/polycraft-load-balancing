@@ -1,6 +1,7 @@
 import configparser
 
 from azure.batch.models import BatchErrorException
+from azure.batch.models import ComputeNodeState
 
 from modules.BatchPool import BatchPool
 from modules.Server import Server
@@ -25,34 +26,29 @@ class PoolManager:
 
         self.flag_transition = False  # Set to true during expansions OR contractions to prevent multiple triggers
         self.batchclient: BatchPool = BatchPool(config=self.raw_config_file)
-        self.state = PoolManager.State.TRANSITIONING
+        self.state = PoolManager.State.STARTING
 
     class State(Enum):
-        STABLE = 0
-        TRANSITIONING = 1
+        STARTING = -1       # True when the constructor is called and it has not yet reached allocation_state = steady
+        STABLE = 0          # This is true when the pool.allocation_state == steady (i.e., the pool can be altered)
+        FLAG_TO_SHIFT = 1   # True when the Load Balancer requests a change but the pool is still steady.
+        TRANSITIONING = 2   # This is true when the pool.allocation_state != steady (i.e., the pool is changing somehow)
+        CLOSING = 3         # Unnecessary?
 
     def check_is_pool_steady(self):
-        #self.poll_servers_and_update()
+        """
+        THis method is unchecked! Please call poll_servers_and_update to get the updated state before calling this.
+
+        :return: True if the pool's allocation state is steady. False otherwise.
+        """
         return self.state == PoolManager.State.STABLE
-        # if pool_id is None:
-        #     if self.batchclient:
-        #         pool_id = self.batchclient.pool_id
-        #     else:
-        #         return False
-        # try:
-        #     pool = self.batchclient.client.pool.get(pool_id)
-        #     if pool is not None and 'steady' in pool.allocation_state.value:
-        #         return True
-        #     return False
-        # except BatchErrorException as e:
-        #     return False
-        # except Exception as e:
-        #     print(e)
-        #     return False
 
     def poll_servers_and_update(self):
         """
-        Updates the pool State and Updates all Team-to-server mappings based on logged-in teams
+        Updates the pool State (based on its allocation_state variable)
+        Queries all servers and updates their Server State.
+
+        NOTE: this is expensive to run and should be running during the config's specified interval to prevent delays
         """
 
         if self.batchclient:
@@ -60,7 +56,17 @@ class PoolManager:
             try:
                 pool = self.batchclient.client.pool.get(pool_id)
                 if pool is not None and 'steady' in pool.allocation_state.value:
-                    self.state = PoolManager.State.STABLE
+                    # Case: Pool is stable but the load balancer is intending to change that soon
+                    if self.state != PoolManager.State.FLAG_TO_SHIFT:
+                        # Only set to stable if the Pool doesn't have a plan to shift
+                        self.state = PoolManager.State.STABLE
+
+                # Case: Pool is still in startup
+                elif self.state == PoolManager.State.STARTING:
+                    return    # Don't run server.poll until the pool is up.
+                    # pass    # Pool is still starting - don't change its state and don't poll servers
+
+                # Case: Pool is not steady
                 else:
                     self.state = PoolManager.State.TRANSITIONING
             except BatchErrorException as e:
@@ -74,7 +80,7 @@ class PoolManager:
                 server.poll()
                 self.teams_to_servers.update({team: server for team in server.teams})
         else:
-            self.state = PoolManager.State.TRANSITIONING
+            self.state = PoolManager.State.STARTING  # If the batchclient is null, the pool must be starting or closing.
 
     def update_server_list(self):
         """
@@ -90,7 +96,9 @@ class PoolManager:
         if self.check_is_pool_steady():
             self.servers.clear()
             self.servercount = 0
-            for node in self.batchclient.client.compute_node.list(pool_id):
+            for node in self.batchclient.client.compute_node.list(pool_id):     #noTODO: Skip based on Node ComputeState?
+                if node.state in [ComputeNodeState.leaving_pool, ComputeNodeState.offline, ComputeNodeState.unusable]:
+                    continue  # Skip compute nodes that are leaving, shutdown, or otherwise useless.
                 ip = None
                 minecraftPort = None
                 APIPort = None
@@ -135,21 +143,28 @@ class PoolManager:
             new_srv_count = count
             pool = self.batchclient.check_or_create_pool(self.batchclient.pool_id)
             count += len(self.servers)
-            if pool is not None and 'steady' in pool.allocation_state.value and not self.flag_transition:
-                if self.batchclient.expand_pool(count):
-                    self.flag_transition = True
+            if pool is not None and 'steady' in pool.allocation_state.value:  # and not self.flag_transition:
+                if self.batchclient.expand_pool(count):     # This triggers the pool.allocation_state to change!
+                    # self.flag_transition = True
                     for i in range(0, new_srv_count):
                         self.batchclient.add_task_to_start_server()  # Add task to the ongoing server.
+                    self.poll_servers_and_update()
                     return True
 
         # TODO:
         return False
 
     def actual_remove_server(self, server: Server):
-        if self.check_is_pool_steady() and self.flag_transition:
+        """
+        Tell the pool to dequeue a Node
+        :param server: The server to remove
+        :return: True if msg passed successfully to the server. False otherwise.
+        """
+        if self.state in [PoolManager.State.STABLE, PoolManager.State.FLAG_TO_SHIFT]:  # Run if stable (due to crash) or if the pool is flagged to shrink
             if server.state == Server.State.DEACTIVATED or server.state == Server.State.CRASHED:
-                if self.batchclient.remove_node_from_pool(server.node_id):
-                    self.flag_transition = False
+                if self.batchclient.remove_node_from_pool(server.node_id):   #  CONFIRMED this triggers allocation_state change!
+
+                    #  print(f"Pool State: {self.batchclient.client.pool.get(self.batchclient.pool_id).allocation_state.value}")
                     self.servers.remove(server)
                     return True
         return False
@@ -162,7 +177,7 @@ class PoolManager:
         :return: True if the signal was applied
         """
         # pool = self.batchclient.check_or_create_pool(self.batchclient.pool_id)
-        if self.check_is_pool_steady() and not self.flag_transition:
+        if self.check_is_pool_steady():     # and not self.flag_transition:
             if server.state == Server.State.STABLE:
                 if server.playercount > 0 and (targetServer is None or targetServer.state != Server.State.STABLE):
                     return False  # Desired server has players! needs a target server that is stable.
@@ -173,7 +188,7 @@ class PoolManager:
                 else:
                     server.decommission()
 
-                self.flag_transition = True
+                self.state = PoolManager.State.FLAG_TO_SHIFT   # Alert the Load Balancer that a msg to shift is received
                 return True
         return False
 
@@ -203,4 +218,4 @@ class PoolManager:
         for srv in self.servers:
             if srv.eligible_for_new_teams():
                 return srv
-        raise
+        raise   # Throw an error if no servers are available - this should NEVER happen.

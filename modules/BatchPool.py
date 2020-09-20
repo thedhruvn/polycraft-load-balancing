@@ -64,6 +64,9 @@ class BatchPool:
             'cd $HOME/polycraft/mods',
             'rm /home/polycraft/oxygen/mods/*.jar',
             'cp *.jar /home/polycraft/oxygen/mods',
+            'cd $HOME/polycraft/scripts/',
+            'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
+            'rm -r /home/polycraft/oxygen/helium/',                 # Remove Helium to force re-generation
             'cd $HOME'
         ]
 
@@ -89,9 +92,10 @@ class BatchPool:
             ))
             return True
         except BatchErrorException as e:
-            print(f"Something went wrong! {e}")
+            print(f"Something went wrong when attempting to remove a node! ID: {node_id} \n{e}")
             return False
         except Exception as e:
+            print(f"Something went wrong when attempting to remove a node! ID: {node_id} \n{e}")
             return False
 
     def expand_pool(self, size):
@@ -130,8 +134,15 @@ class BatchPool:
             constraints=constraint,
             user_identity=user_identity)
 
-        self.client.task.add(job_id=self.job_id, task=task)
-        self.globalTaskCounter += 1
+        try:
+            self.globalTaskCounter += 1
+            self.client.task.add(job_id=self.job_id, task=task)
+        except BatchErrorException as e:
+            self.globalTaskCounter += 1
+            self.start_mc_server_job_pool(1)
+            self.client.task.add(job_id=self.job_id, task=task)
+
+
 
     def start_mc_server_job_pool(self, maxNodes = None):
 
@@ -141,7 +152,7 @@ class BatchPool:
         job = batchmodels.JobAddParameter(
             id=helpers.generate_unique_resource_name(f"MC_server"),
             pool_info=batchmodels.PoolInformation(pool_id=self.pool_id),
-            # on_all_tasks_complete='terminatejob',
+            on_all_tasks_complete=batchmodels.OnAllTasksComplete.no_action,
             on_task_failure=batchmodels.OnTaskFailure.perform_exit_options_job_action
             )
 

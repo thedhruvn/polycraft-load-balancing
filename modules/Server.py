@@ -118,7 +118,7 @@ class Server:
             #  Check to see if the server is up yet:
             if self._is_mc_alive():
                 self.state = Server.State.STABLE
-            elif self.countfailures > self.maxFailsBeforeDown:
+            elif self.countfailures > self.maxFailsBeforeDown*2:
                 self.state = Server.State.CRASHED
             return
 
@@ -255,7 +255,7 @@ class Server:
                     # TODO: Resend the deactivation request.
                     return
                 else:
-                    self.state = Server.State.DEACTIVATED
+                    self.state = Server.State.DEACTIVATED       # No players online
             except timeout:
                 # The Server is down
                 print(f"Server {self.id} has been deactivated")
@@ -373,12 +373,12 @@ class Server:
         """
         INITIALIZING = -1               # Server has not yet started.
         STABLE = 0                      # No changes needed or all changes completed
-        STABLE_BUT_TASK_FAILED = 91      # Edge case: can't connect to the Python API on a node.
-        WAITING_FOR_MERGE = 5           # No new teams should enter this server because it is expecting a merge. Also, shouldn't get flagged for deallocation.
-        REQUESTED_DEACTIVATION = 1      # A change has been requested & sent to the server
-        CONFIRMING_DEACTIVATION = 2     # An appropriate amount of time has passed for the server to ack. and apply the change
-        DEACTIVATED = 3                 # The server has acknowledged that the requested change is complete
-        CRASHED = 99                     # Server is unexpectedly inaccessible.
+        WAITING_FOR_MERGE = 1           # No new teams should enter this server because it is expecting a merge. Also, shouldn't get flagged for deallocation.
+        REQUESTED_DEACTIVATION = 2      # A change has been requested & sent to the server
+        CONFIRMING_DEACTIVATION = 3     # An appropriate amount of time has passed for the server to ack. and apply the change
+        DEACTIVATED = 4                 # The server has acknowledged that the requested change is complete
+        STABLE_BUT_TASK_FAILED = 91     # Edge case: can't connect to the Python API on a node.
+        CRASHED = 99                    # Server is unexpectedly inaccessible.
 
         def __lt__(self, other):
             if self.__class__ is other.__class__:
