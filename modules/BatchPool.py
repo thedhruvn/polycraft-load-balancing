@@ -220,6 +220,9 @@ class BatchPool:
             #     elevation_level=batchmodels.ElevationLevel.non_admin)
         ]
 
+        # Thank you Ask Ubuntu https://askubuntu.com/a/373478
+        wait_for_locks = "while sudo fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo 'Waiting for release of apt locks'; sleep 2; done; "
+
         start_task = batchmodels.StartTask(
             command_line=helpers.wrap_commands_in_shell('linux', [
                 'whoami',
@@ -231,10 +234,12 @@ class BatchPool:
                 # Stop the crontabs from running
                 'sudo rm /var/spool/cron/crontabs/*',
                 # 'sudo touch /var/spool/cron/crontabs/polycraft && sudo chmod 0 /var/spool/cron/crontabs/polycraft',
-                'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-get install software-properties-common -y',
-                'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-add-repository universe',
+                # 'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-get install software-properties-common -y',
+                wait_for_locks + 'sudo apt-get install software-properties-common -y',
+                # 'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-add-repository universe',
+                wait_for_locks + 'sudo apt-add-repository universe',
                 # Mount the Polycraft Game FileShare
-                'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-get install cifs-utils -y && sudo mkdir -p /mnt/PolycraftGame/',
+                wait_for_locks + 'sudo apt-get install cifs-utils -y && sudo mkdir -p /mnt/PolycraftGame/',
                 f'mount -t cifs //polycraftbestbatch.file.core.windows.net/best-batch-round-1-test /mnt/PolycraftGame -o vers=3.0,username={self.credentials.get("Storage", "storageaccountname")},password={self.credentials.get("Storage", "storageaccountkey")},dir_mode=0777,file_mode=0777,serverino && ls /mnt/PolycraftGame',
                 # Copy the default world file to the right folder
                 'cp /mnt/PolycraftGame/testsR1/worlds/base_utd.tar.gz /home/polycraft/oxygen/',
