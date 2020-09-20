@@ -82,7 +82,7 @@ class LoadBalancerMain:
 
     def main(self):
 
-        max_retry_initialize = 5
+        max_retry_initialize = 6
         id = self.config.get('POOL', 'id')
         is_new_pool = self.pool.initializeManager(id)
         counter = 0
@@ -278,7 +278,7 @@ class LoadBalancerMain:
                     self.state = LoadBalancerMain.State.STABLE
 
                 for server in crashList:
-                    self.__remove_specific_server(server)   # TODO: Confirm that the pool changes its state.
+                    self.__remove_specific_server(server)   # Confirmed - pool changes immediately!
 
             # Case 3:   Request has been made for the Pool to increase in size. Poll to see if this has changed.
             #           detect when the new server has MC up and running and shift back to STABLE after that.
@@ -334,7 +334,7 @@ class LoadBalancerMain:
                     self.pool.update_server_list()
                     self.state = LoadBalancerMain.State.STABLE
 
-            return modifier
+        return modifier
 
     class State(Enum):
         STARTING = -2

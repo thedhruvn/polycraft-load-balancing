@@ -255,6 +255,7 @@ class BatchPool:
         )
 
         net_config = batchmodels.NetworkConfiguration(
+            # subnet_id="/subscriptions/889566d5-6e5d-4d31-a82d-b60603b3e50b/resourceGroups/vnet-eastus-azurebatch/providers/Microsoft.Network/virtualNetworks/vnet-eastus-azurebatch/subnets/main-batch-subnet",
             endpoint_configuration=batchmodels.PoolEndpointConfiguration(
                 inbound_nat_pools=[batchmodels.InboundNATPool(
                     name='minecraftServer',

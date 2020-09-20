@@ -29,3 +29,6 @@ cd /home/polycraft/$1
 
 # Call REST service for whitelist and private property data
 screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Danalytics.enabled=true -Dbest.debug=true -DisBestServer=true =Dbest.default.directory=/mnt/PolycraftGame/testsR1/ -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui
+#screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Danalytics.enabled=true -Dbest.debug=true -DisBestServer=true =Dbest.default.directory=/mnt/PolycraftGame/testsR1/ -Dportal.rest.url=http://polycraft-beta.cloudapp.net/rest -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui
+
+#screen -d -m -S "oxygen" java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Danalytics.enabled=true -Dbest.debug=true -DisBestServer=true =Dbest.default.directory=/mnt/PolycraftGame/testsR1/ -Dportal.rest.url=http://polycraft-beta.cloudapp.net/rest -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:oxygen.gc /home/polycraft/oxygen/polycraft-launcher.jar nogui
