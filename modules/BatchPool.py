@@ -142,8 +142,6 @@ class BatchPool:
             self.start_mc_server_job_pool(1)
             self.client.task.add(job_id=self.job_id, task=task)
 
-
-
     def start_mc_server_job_pool(self, maxNodes = None):
 
         if maxNodes is None:
@@ -181,7 +179,6 @@ class BatchPool:
             #     user_identity=user_identity)
             #
             # self.client.task.add(job_id=job.id, task=task)
-
 
     def check_or_create_pool(self, id=None):
         if id is None:
@@ -233,12 +230,19 @@ class BatchPool:
                 'chmod -R 777 *',
                 'rm /home/polycraft/oxygen/mods/polycraft-1.5.2-20200909-21.14.01.jar',
                 # Stop the crontabs from running
-                'sudo touch /var/spool/cron/crontabs/polycraft && sudo chmod 0 /var/spool/cron/crontabs/polycraft',
-                # 'apt-get install software-properties-common',
-                # 'apt-add-repository universe',
+                'sudo rm /var/spool/cron/crontabs/*',
+                # 'sudo touch /var/spool/cron/crontabs/polycraft && sudo chmod 0 /var/spool/cron/crontabs/polycraft',
+                'sudo apt-get install software-properties-common -y',
+                'sudo apt-add-repository universe',
                 # Mount the Polycraft Game FileShare
-                'sudo apt-get install cifs-utils && sudo mkdir -p /mnt/PolycraftGame/',
+                'sudo apt-get install cifs-utils -y && sudo mkdir -p /mnt/PolycraftGame/',
                 f'mount -t cifs //polycraftbestbatch.file.core.windows.net/best-batch-round-1-test /mnt/PolycraftGame -o vers=3.0,username={self.credentials.get("Storage", "storageaccountname")},password={self.credentials.get("Storage", "storageaccountkey")},dir_mode=0777,file_mode=0777,serverino && ls /mnt/PolycraftGame',
+                # Copy the default world file to the right folder
+                'cp -r /mnt/PolycraftGame/testsR1/worlds/base_utd.tar.gz /home/polycraft/oxygen/',
+                'cd /home/polycraft/oxygen/',
+                'rm -r helium/',
+                'gzip -d /home/polycraft/oxygen/base_utd.tar.gz',
+                'tar -xf base_utd.tar',                       # NOTE: The folder inside here is called helium!
             ]),
             wait_for_success=True,
             # user_accounts=users,
