@@ -65,7 +65,6 @@ class BatchPool:
             'cp *.jar /home/polycraft/oxygen/mods',
             'cd $HOME/polycraft/scripts/',
             'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
-            'rm -r /home/polycraft/oxygen/helium/',                 # Remove Helium to force re-generation
             'cd $HOME'
         ]
 
@@ -232,6 +231,12 @@ class BatchPool:
                 'cd /home/polycraft',
                 'chmod -R 777 *',
                 'rm /home/polycraft/oxygen/mods/*.jar',
+                'cd /home/polycraft/oxygen/',
+                'echo "[DEBUG] removing helium..."',
+                'ls -l',
+                'sudo rm -rf /home/polycraft/oxygen/helium',
+                'echo "[DEBUG] removed helium?"',
+                'ls -l',
                 # Stop the crontabs from running
                 'sudo rm /var/spool/cron/crontabs/*',
                 # 'sudo touch /var/spool/cron/crontabs/polycraft && sudo chmod 0 /var/spool/cron/crontabs/polycraft',
@@ -245,10 +250,16 @@ class BatchPool:
                 # Copy the default world file to the right folder
                 'cp /mnt/PolycraftGame/testsR1/worlds/base_utd.tar.gz /home/polycraft/oxygen/',
                 'cd /home/polycraft/oxygen/',
-                'sudo rm -r helium',
+                # 'sudo rm -r helium',
                 'gzip -d /home/polycraft/oxygen/base_utd.tar.gz',
-                'tar -xf base_utd.tar',
+                'echo "[DEBUG] extracting the tar"',
+                'ls -l',
+                'sudo tar -xf base_utd.tar',
+                'echo "[DEBUG] extracted the tar"',
+                'ls -l',
                 'chmod -R 777 helium/',     #  NOTE: The folder inside here is called helium!
+                'echo "[DEBUG] Adjusted permissions for helium?"',
+                'ls -l',
             ]),
             wait_for_success=True,
             # user_accounts=users,
