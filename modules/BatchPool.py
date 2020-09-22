@@ -248,13 +248,13 @@ class BatchPool:
                 wait_for_locks + 'sudo apt-get install cifs-utils -y && sudo mkdir -p /mnt/PolycraftGame/',
                 f'mount -t cifs //polycraftbestbatch.file.core.windows.net/best-batch-round-1-test /mnt/PolycraftGame -o vers=3.0,username={self.credentials.get("Storage", "storageaccountname")},password={self.credentials.get("Storage", "storageaccountkey")},dir_mode=0777,file_mode=0777,serverino && ls /mnt/PolycraftGame',
                 # Copy the default world file to the right folder
-                'cp /mnt/PolycraftGame/testsR1/worlds/base_utd.tar.gz /home/polycraft/oxygen/',
+                'cp /mnt/PolycraftGame/testsR1/worlds/utd_base_v2.tar.gz /home/polycraft/oxygen/',
                 'cd /home/polycraft/oxygen/',
                 # 'sudo rm -r helium',
-                'gzip -d /home/polycraft/oxygen/base_utd.tar.gz',
+                'gzip -d /home/polycraft/oxygen/utd_base_v2.tar.gz',
                 'echo "[DEBUG] extracting the tar"',
                 'ls -l',
-                'sudo tar -xf base_utd.tar',
+                'sudo tar -xf utd_base_v2.tar',
                 'echo "[DEBUG] extracted the tar"',
                 'ls -l',
                 'chmod -R 777 helium/',     #  NOTE: The folder inside here is called helium!
