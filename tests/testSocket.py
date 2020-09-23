@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-import socket, random, time, json, os
+import socket , random, time, json, os
 
 # HOST = "127.0.0.1"
 # PORT = 9010
 # HOST = "52.190.28.214"
 # HOST = "52.224.82.132"
 # HOST = "40.88.21.122"
-HOST = "52.142.25.7"
-PORT = 44500
+HOST = "127.0.0.1"
+# PORT = 44500
+PORT = 9008
 # HOST = "52.146.54.238"
 # PORT = 44501
 
