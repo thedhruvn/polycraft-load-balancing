@@ -257,6 +257,7 @@ class BatchPool:
                 'sudo tar -xf utd_scavenger.tar',
                 'echo "[DEBUG] extracted the tar"',
                 'ls -l',
+                'sudo mv helium-backup-0924 helium',
                 'chmod -R 777 helium/',     #  NOTE: The folder inside here is called helium!
                 'echo "[DEBUG] Adjusted permissions for helium?"',
                 'ls -l',
