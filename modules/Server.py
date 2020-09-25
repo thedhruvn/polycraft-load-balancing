@@ -300,7 +300,7 @@ class Server:
                 print("error - unable to connect to API. Please restart me!")
                 self.state = Server.State.STABLE_BUT_TASK_FAILED
         except Exception as e:
-            print("General Error")
+            print("General Error " + e)
 
         return False
 
