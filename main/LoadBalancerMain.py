@@ -171,9 +171,9 @@ class LoadBalancerMain:
                     print("Listing all servers")
                     result = "{"
                     for server in self.pool.servers:
-                        result += f'"{server.id}":{{"api_port":{server.api}, "players":{server.playercount}, "state":"{server.state.name}"}},'
+                        result += f'"{server.id}":{{"api_port":{server.api}, "players":{server.playercount}, "state":"{server.state.name}"}}, "team_map":{{'
                     for team, server in self.pool.teams_to_servers.items():
-                        result += f'"team_map":{{"{team}":"{server.id}"}},'
+                        result += f'"{team}":"{server.id}",'
                     result += "}"
                     self.replies_to_lobby.put(result)
 
