@@ -117,6 +117,7 @@ class LoadBalancerMain:
 
                 next_line = self._check_queues().lower()
                 if next_line is None or next_line == '':
+                    time.sleep(0.05)
                     pass
 
                 else:
@@ -140,7 +141,8 @@ class LoadBalancerMain:
                 # Check for Commands sent to the Listener port
                 next_line = self._check_queues().lower()
                 if next_line is None or next_line == '':
-                    pass
+                    time.sleep(0.05)
+
 
                 elif CommandSet.STATE.value in next_line:
                     print("requested status...")
@@ -227,15 +229,17 @@ class LoadBalancerMain:
         if (seconds_ticker % int(self.config.get('LOAD', 'secondsBetweenMCPoll'))) == 0:
             if modifier > 0:
                 modifier -= 1
-                return False
+                return False, modifier
             self.pool.poll_servers_and_update()
-            return True
-        return False
+            return True, modifier
+        return False, modifier
 
     def handle_active_state(self, seconds_ticker, modifier):
 
-        if self.poll_servers(seconds_ticker, modifier):
+        is_time, modifier = self.poll_servers(seconds_ticker, modifier)
+        if is_time:
 
+            # Case 1: Pool is steady.
             # state = STABLE - check all nodes and see if any crashed
             if self.state == LoadBalancerMain.State.STABLE:
                 crashList = []          # Cases where the server itself crashed
@@ -258,10 +262,11 @@ class LoadBalancerMain:
                     self.pool.batchclient.add_task_to_start_server()
                     self.state = LoadBalancerMain.State.RESTARTING_TASK
 
-                if self.pool.check_is_pool_steady(): # and not self.pool.flag_transition:
+                if self.pool.check_is_pool_steady():
                     self.should_add_server_check()
                     self.should_merge_servers_check()
 
+            # Case 2: Listener Script failed on the Node.
             # state = RESTARTING_TASK   - a new tasks need to be added to the pool. Don't allow auto-balancing here.
             elif self.state == LoadBalancerMain.State.RESTARTING_TASK:
                 # if self.poll_servers(seconds_ticker, modifier):
@@ -288,9 +293,6 @@ class LoadBalancerMain:
                 if initialized:
                     self.pool.update_server_list()
                     self.state = LoadBalancerMain.State.WAITING_FOR_NEW_SERVERS
-                    # print("State Changed")
-                    # return
-                    # self.state = LoadBalancerMain.State.WAITING_FOR_NEW_SERVERS
 
             # Case 3a:      The Pool is Steady, but the MC Server hasn't started yet. Poll occasionally until
             #               its online!
@@ -348,10 +350,31 @@ class LoadBalancerMain:
         WAITING_FOR_NEW_SERVERS = 6
 
     def should_add_server_check(self):
-        pass
+        if self.pool.check_is_pool_steady() and self.state in [LoadBalancerMain.State.STABLE,
+                                                               LoadBalancerMain.State.RESTARTING_TASK]:
+            if len(self.pool.servers) < int(self.config.get("POOL", "maxcount")):
+                count_teams = len(self.pool.teams_to_servers.keys())
+                # count_players = sum([serv.playercount for serv in self.pool.servers])
+                count_team_capacity = len(self.pool.servers) * int(self.config.get("SERVER", "maxTeamsPerServer"))
+                # Linear scale - threshold is a function of the number of teams available - we want room for
+                # at least 3? 5? 7? teams to join at any time.
+                if count_team_capacity - count_teams < 5:   # What is this threshold?
+                    self.__add_server()
+                    return
+
 
     def should_merge_servers_check(self):
-        pass
+        if self.pool.check_is_pool_steady() and self.state in [LoadBalancerMain.State.STABLE,
+                                                               LoadBalancerMain.State.RESTARTING_TASK]:
+            if len(self.pool.servers) > int(self.config.get("POOL", "mincount")):
+                count_teams = len(self.pool.teams_to_servers.keys())
+                # count_players = sum([serv.playercount for serv in self.pool.servers])
+                count_team_capacity = len(self.pool.servers) * int(self.config.get("SERVER", "maxTeamsPerServer"))
+                # Linear scale - threshold is a function of the number of teams available - we want room for
+                # at least 3? 5? 7? teams to join at any time.
+                if count_team_capacity - count_teams > 5+int(self.config.get("SERVER", "maxTeamsPerServer")):   # What is this threshold?
+                    self.__find_and_remove_server()
+                    return
 
     def __add_server(self):
         if self.pool.check_is_pool_steady() and self.state in [LoadBalancerMain.State.STABLE, LoadBalancerMain.State.RESTARTING_TASK]:

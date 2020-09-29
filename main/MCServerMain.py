@@ -14,6 +14,7 @@ import socket
 from root import *
 from functools import total_ordering
 from modules.comms.MCMainToPCW import MCCommandSet, FormattedMsg
+import time
 
 class CommandSet(Enum):
 
@@ -209,6 +210,7 @@ class MCServer:
             next_line = self._check_queues()
 
             if next_line is None or next_line == '':
+                time.sleep(0.05)
                 continue
 
             if CommandSet.HELLO.value in next_line.lower():

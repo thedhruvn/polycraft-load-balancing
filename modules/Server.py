@@ -16,7 +16,9 @@ Holds a server object and can run the main() function for the server object
 """
 class Server:
 
-    def __init__(self, ip, port, api_port, node_id, reattach = False, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
+    def __init__(self, ip, port, api_port, node_id, api_player_team=None, reattach = False, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
+        if api_player_team is None:
+            api_player_team = {}
         self.ip = ip
         self.port = port
         self.api = api_port
@@ -27,6 +29,7 @@ class Server:
         self.teams = []
         self.players = []
         self.player_team = {}
+        self.master_player_team_map = api_player_team
         self.playercount = 0
         if not reattach:
             self.state = Server.State.INITIALIZING
@@ -108,9 +111,10 @@ class Server:
         return False
 
     def _get_team_for_player(self, playerName):
-        # TODO: implement REST API here.
+        if self.master_player_team_map is not None:
+            if playerName.lower() in self.master_player_team_map.keys():
+                return self.master_player_team_map[playerName.lower()]
         return -1
-
 
     def poll(self):
         print(f"{datetime.datetime.now()} Running Poll: {self.id}")
@@ -141,8 +145,8 @@ class Server:
                 if len(self.player_team) < len(playersdetected):
                     players_to_search = {player: name for player, name in playersdetected.items() if player not in self.player_team}
                     for player, name in players_to_search.items():
-                        team = self._get_team_for_player(name)
-                        self.player_team.update({player: team})
+                        team2 = self._get_team_for_player(name)
+                        self.player_team.update({player: team2})
 
 
                 self.players = list(self.player_team.keys())

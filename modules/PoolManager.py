@@ -1,5 +1,5 @@
 import configparser
-
+import requests
 from azure.batch.models import BatchErrorException
 from azure.batch.models import ComputeNodeState
 
@@ -98,6 +98,15 @@ class PoolManager:
         else:
             self.state = PoolManager.State.STARTING  # If the batchclient is null, the pool must be starting or closing.
 
+    def __call_teams_api(self):
+        resp = requests.get("https://beta.polycraftworld.com/api/best-teams/")
+        if resp.status_code == 200:
+            if resp.text.startswith('{') and resp.text.endswith('}'):
+                self.player_to_team_lookup = {key.lower(): value['team_id'] for key, value in resp.json().items() if isinstance(resp.json()[key], dict) and 'team_id' in resp.json()[key].keys()}
+        else:
+            self.player_to_team_lookup = None
+        return
+
     def update_server_list(self):
         """
         Polls all servers in a given pool and updates the PoolManager's list of servers
@@ -111,6 +120,7 @@ class PoolManager:
 
         if self.check_is_pool_steady():
             self.servers.clear()
+            self.__call_teams_api()
             self.servercount = 0
             for node in self.batchclient.client.compute_node.list(pool_id):
                 if node.state in [ComputeNodeState.leaving_pool, ComputeNodeState.offline, ComputeNodeState.unusable]:
@@ -128,7 +138,9 @@ class PoolManager:
                         APIPort = endpoint.frontend_port
                         ip = endpoint.public_ip_address
 
-                newSrv = Server(node_id=node.id, ip=ip, port=minecraftPort, api_port=APIPort)
+                newSrv = Server(node_id=node.id,
+                                ip=ip, port=minecraftPort, api_port=APIPort,
+                                api_player_team=self.player_to_team_lookup)
                 newSrv.poll()  # Update its state
                 self.add_logical_server(newSrv)
             return True
