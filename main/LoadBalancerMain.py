@@ -350,6 +350,13 @@ class LoadBalancerMain:
         WAITING_FOR_NEW_SERVERS = 6
 
     def should_add_server_check(self):
+        """
+        Load Balancing Algorithm that checks whether conditions are right for the load balancer to add a
+        new node to the server. Current algorithm:
+        Always maintain available team capacity of 5 teams. This is a hardcoded number. This can be changed in
+        ~config.azurebatch
+
+        """
         if self.pool.check_is_pool_steady() and self.state in [LoadBalancerMain.State.STABLE,
                                                                LoadBalancerMain.State.RESTARTING_TASK]:
             if len(self.pool.servers) < int(self.config.get("POOL", "maxcount")):
@@ -358,12 +365,16 @@ class LoadBalancerMain:
                 count_team_capacity = len(self.pool.servers) * int(self.config.get("SERVER", "maxTeamsPerServer"))
                 # Linear scale - threshold is a function of the number of teams available - we want room for
                 # at least 3? 5? 7? teams to join at any time.
-                if count_team_capacity - count_teams < 5:   # What is this threshold?
+                if count_team_capacity - count_teams < int(self.config.get("LOAD", "thresholdTeamsAvailable")):   # What is this threshold?
                     self.__add_server()
                     return
 
-
     def should_merge_servers_check(self):
+        """
+        Server merging algorithm that removes extra servers if they are unused, leaving a 5-team overhead.
+
+        :return:
+        """
         if self.pool.check_is_pool_steady() and self.state in [LoadBalancerMain.State.STABLE,
                                                                LoadBalancerMain.State.RESTARTING_TASK]:
             if len(self.pool.servers) > int(self.config.get("POOL", "mincount")):
@@ -372,7 +383,7 @@ class LoadBalancerMain:
                 count_team_capacity = len(self.pool.servers) * int(self.config.get("SERVER", "maxTeamsPerServer"))
                 # Linear scale - threshold is a function of the number of teams available - we want room for
                 # at least 3? 5? 7? teams to join at any time.
-                if count_team_capacity - count_teams > 5+int(self.config.get("SERVER", "maxTeamsPerServer")):   # What is this threshold?
+                if count_team_capacity - count_teams > int(self.config.get("LOAD", "thresholdTeamsAvailable"))+int(self.config.get("SERVER", "maxTeamsPerServer")):   # What is this threshold?
                     self.__find_and_remove_server()
                     return
 
