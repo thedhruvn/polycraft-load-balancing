@@ -15,6 +15,7 @@ from root import *
 from functools import total_ordering
 from modules.comms.MCMainToPCW import MCCommandSet, FormattedMsg
 import time
+import datetime
 
 class CommandSet(Enum):
 
@@ -211,6 +212,10 @@ class MCServer:
 
             if next_line is None or next_line == '':
                 time.sleep(0.05)
+                now = datetime.datetime.now()
+                if now.hour == 3 and now.minute == 0 and now.second == 0:
+                    self._launch_minecraft()
+                    time.sleep(12)
                 continue
 
             if CommandSet.HELLO.value in next_line.lower():
