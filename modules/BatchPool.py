@@ -65,7 +65,10 @@ class BatchPool:
             'cp *.jar /home/polycraft/oxygen/mods',
             'cd $HOME/polycraft/scripts/',
             'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
-            'cd $HOME'
+            'cd $HOME/polycraft/misc',
+            'cp log4j2_server.xml /home/polycraft/oxygen',          # Copy the log4j2_server xml to the root.
+            'cd $HOME',
+
         ]
 
         launch_server = [
@@ -234,7 +237,7 @@ class BatchPool:
                 'cd /home/polycraft/oxygen/',
                 'echo "[DEBUG] removing helium..."',
                 'ls -l',
-                'sudo rm -rf /home/polycraft/oxygen/helium',
+                f'sudo rm -rf /home/polycraft/oxygen/{self.config.get("SERVER","worldName")}',
                 'echo "[DEBUG] removed helium?"',
                 'ls -l',
                 # Stop the crontabs from running
@@ -248,17 +251,17 @@ class BatchPool:
                 wait_for_locks + 'sudo apt-get install cifs-utils -y && sudo mkdir -p /mnt/PolycraftGame/',
                 f'mount -t cifs //polycraftbestbatch.file.core.windows.net/best-batch-round-1-test /mnt/PolycraftGame -o vers=3.0,username={self.credentials.get("Storage", "storageaccountname")},password={self.credentials.get("Storage", "storageaccountkey")},dir_mode=0777,file_mode=0777,serverino && ls /mnt/PolycraftGame',
                 # Copy the default world file to the right folder
-                'cp /mnt/PolycraftGame/testsR1/worlds/utd_scavenger.tar.gz /home/polycraft/oxygen/',
+                f'cp /mnt/PolycraftGame/testsR1/worlds/{self.config.get("SERVER","worldZipName")}.tar.gz /home/polycraft/oxygen/',
                 'cd /home/polycraft/oxygen/',
                 # 'sudo rm -r helium',
-                'gzip -d /home/polycraft/oxygen/utd_scavenger.tar.gz',
+                f'gzip -d /home/polycraft/oxygen/{self.config.get("SERVER","worldZipName")}.tar.gz',
                 'echo "[DEBUG] extracting the tar"',
                 'ls -l',
-                'sudo tar -xf utd_scavenger.tar',
+                f'sudo tar -xf {self.config.get("SERVER","worldZipName")}.tar',
                 'echo "[DEBUG] extracted the tar"',
                 'ls -l',
-                'sudo mv helium-backup-0924 helium',
-                'chmod -R 777 helium/',     #  NOTE: The folder inside here is called helium!
+                #'sudo mv helium-backup-0924 helium',
+                f'chmod -R 777 {self.config.get("SERVER","worldName")}/',     #  NOTE: The folder inside here is called helium!
                 'echo "[DEBUG] Adjusted permissions for helium?"',
                 'ls -l',
             ]),
