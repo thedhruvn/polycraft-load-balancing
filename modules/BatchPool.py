@@ -67,6 +67,7 @@ class BatchPool:
             'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
             'cd $HOME/polycraft/misc',
             'cp log4j2_server.xml /home/polycraft/oxygen',          # Copy the log4j2_server xml to the root.
+            f'sed -i "s+/REPLACEME/+/{self.config.get("SERVER","fileShareFolder")}/logs/$AZ_BATCH_NODE_ID/+g" /home/polycraft/oxygen/log4j2_server.xml',
             'cd $HOME',
 
         ]
@@ -171,15 +172,7 @@ class BatchPool:
 
         for count in range(1, maxNodes+1):
             self.add_task_to_start_server()
-            # task = batchmodels.TaskAddParameter(
-            #     id=f"Server-{str(count)}",
-            #     command_line=helpers.wrap_commands_in_shell('linux', self.get_start_task_commands()
-            #     # ['/home/polycraft/scripts/ping_wrapper_no_pp.sh oxygen 25565',]
-            #                                                 ),
-            #     constraints=constraint,
-            #     user_identity=user_identity)
-            #
-            # self.client.task.add(job_id=job.id, task=task)
+
 
     def check_or_create_pool(self, id=None):
         if id is None:
@@ -241,6 +234,7 @@ class BatchPool:
                 'echo "[DEBUG] removing helium..."',
                 'ls -l',
                 f'sudo rm -rf /home/polycraft/oxygen/{self.config.get("SERVER","worldName")}',
+                'sudo rm -f *.zip',
                 'echo "[DEBUG] removed helium?"',
                 'ls -l',
                 # Stop the crontabs from running
@@ -256,7 +250,7 @@ class BatchPool:
                 wait_for_locks + 'sudo apt-get install cifs-utils -y && sudo mkdir -p /mnt/PolycraftGame/',
                 f'mount -t cifs //polycraftbestbatch.file.core.windows.net/best-batch-round-1-test /mnt/PolycraftGame -o vers=3.0,username={self.credentials.get("Storage", "storageaccountname")},password={self.credentials.get("Storage", "storageaccountkey")},dir_mode=0777,file_mode=0777,serverino && ls /mnt/PolycraftGame',
                 # Copy the default world file to the right folder
-                f'cp /mnt/PolycraftGame/testsR1/worlds/{self.config.get("SERVER","worldZipName")}.tar.gz /home/polycraft/oxygen/',
+                f'cp /mnt/PolycraftGame/{self.config.get("SERVER","fileShareFolder")}/worlds/{self.config.get("SERVER","worldZipName")}.tar.gz /home/polycraft/oxygen/',
                 'cd /home/polycraft/oxygen/',
                 # 'sudo rm -r helium',
                 f'gzip -d /home/polycraft/oxygen/{self.config.get("SERVER","worldZipName")}.tar.gz',
@@ -265,7 +259,8 @@ class BatchPool:
                 f'sudo tar -xf {self.config.get("SERVER","worldZipName")}.tar',
                 'echo "[DEBUG] extracted the tar"',
                 'ls -l',
-                #'sudo mv helium-backup-0924 helium',
+                # 'sudo mv helium-backup-0924 helium',
+                f'sudo mv helium {self.config.get("SERVER","worldName")}',    # TODO Remove this once we finalize the server name?
                 f'chmod -R 777 {self.config.get("SERVER","worldName")}/',     #  NOTE: The folder inside here is called helium!
                 'echo "[DEBUG] Adjusted permissions for helium?"',
                 'ls -l',
