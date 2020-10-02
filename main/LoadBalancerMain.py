@@ -82,7 +82,7 @@ class LoadBalancerMain:
 
     def main(self):
 
-        max_retry_initialize = 6
+        max_retry_initialize = 10
         id = self.config.get('POOL', 'id')
         is_new_pool = self.pool.initializeManager(id)
         counter = 0
@@ -365,7 +365,7 @@ class LoadBalancerMain:
                 count_team_capacity = len(self.pool.servers) * int(self.config.get("SERVER", "maxTeamsPerServer"))
                 # Linear scale - threshold is a function of the number of teams available - we want room for
                 # at least 3? 5? 7? teams to join at any time.
-                if count_team_capacity - count_teams < int(self.config.get("LOAD", "thresholdTeamsAvailable")):   # What is this threshold?
+                if (count_team_capacity - count_teams < int(self.config.get("LOAD", "thresholdTeamsAvailable"))) or len(self.pool.servers) < int(self.config.get("POOL", "mincount")):   # What is this threshold?
                     self.__add_server()
                     return
 
