@@ -23,7 +23,7 @@ class BatchPool:
         self.credentials = configparser.ConfigParser()
         self.credentials.read(credentials)
         self.client = self._login_to_batch()
-        self.git_branch = 'master'
+        self.git_branch = 'rapid-restart-testing'
         self.pool_id = self.config.get('POOL', 'id')    #  this can get overwritten when the getPool function is run.
         self.job_id = ""
         self.globalTaskCounter = 0
