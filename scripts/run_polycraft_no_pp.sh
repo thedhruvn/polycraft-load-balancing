@@ -20,4 +20,4 @@ fi
 cd /home/polycraft/$1
 
 # Then, run polycraft in a screen.  Uncomment the correct command line to use either local or remote REST info
-screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Dbest.default.directory=/mnt/PolycraftGame/round1main/ -Danalytics.enabled=true -DisBestServer=true -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui
+screen -d -m -S $1 java -jar -Xms4G -Xmx6G -XX:+UseConcMarkSweepGC -d64 -Dbest.default.directory=/mnt/PolycraftGame/testsR2/ -Danalytics.enabled=true -DisBestServer=true -XX:+UseParNewGC -XX:+CMSIncrementalPacing -XX:ParallelGCThreads=4 -XX:+AggressiveOpts -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$1.gc /home/polycraft/$1/polycraft-launcher.jar nogui
