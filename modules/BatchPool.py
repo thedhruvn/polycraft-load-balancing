@@ -65,6 +65,7 @@ class BatchPool:
             'cp *.jar /home/polycraft/oxygen/mods',
             'cd $HOME/polycraft/scripts/',
             'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
+            f'sed -i "s+/REPLACEME/+/{self.config.get("SERVER", "fileShareFolder")}/+g" $HOME/polycraft/scripts/run_polycraft_no_pp.sh',
             'cd $HOME/polycraft/misc',
             'cp log4j2_server.xml /home/polycraft/oxygen',          # Copy the log4j2_server xml to the root.
             f'sed -i "s+/REPLACEME/+/{self.config.get("SERVER","fileShareFolder")}/logs/$AZ_BATCH_NODE_ID/+g" /home/polycraft/oxygen/log4j2_server.xml',
