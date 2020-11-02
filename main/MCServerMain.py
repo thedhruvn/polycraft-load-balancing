@@ -208,89 +208,90 @@ class MCServer:
         self._launch_comms()
         self.__check_and_launch_minecraft()
         while stay_alive:
-            next_line = self._check_queues()
+            try:
+                next_line = self._check_queues()
 
-            if next_line is None or next_line == '':
-                time.sleep(0.05)
-                now = datetime.datetime.now()
-                if now.hour == 3 and now.minute == 0 and now.second == 0:
+                if next_line is None or next_line == '':
+                    time.sleep(0.05)
+                    now = datetime.datetime.now()
+                    if now.hour == 3 and now.minute == 0 and now.second == 0:
+                        self._launch_minecraft()
+                        time.sleep(12)
+                    elif now.minute % 10 == 0 and now.second == 0:
+                        self._launch_minecraft()
+                        time.sleep(12)
+                    continue
+
+                if CommandSet.HELLO.value in next_line.lower():
+                    self.out_queue.put("I am awake")
+
+                elif CommandSet.ABORT.value in next_line.lower():
+                    print(f"abort received...")
+                    self.out_queue.put("Aborting...")
+                    stay_alive = False
+
+                elif CommandSet.LAUNCH.value in next_line.lower():
+                    print(f"(Re)Launching MC Server")
                     self._launch_minecraft()
-                    time.sleep(12)
-                elif now.minute % 10 == 0 and now.second == 0:
-                    self._launch_minecraft()
-                    time.sleep(12)
-                continue
+                    self.out_queue.put("Re-launching MC Server")
 
-            if CommandSet.HELLO.value in next_line.lower():
-                self.out_queue.put("I am awake")
-
-            elif CommandSet.ABORT.value in next_line.lower():
-                print(f"abort received...")
-                self.out_queue.put("Aborting...")
-                stay_alive = False
-
-            elif CommandSet.LAUNCH.value in next_line.lower():
-                print(f"(Re)Launching MC Server")
-                self._launch_minecraft()
-                self.out_queue.put("Re-launching MC Server")
-
-            elif CommandSet.MCALIVE.value in next_line.lower():
-                print("is MC Alive?")
-                if self.test_mc_status():
-                    self.out_queue.put("Server is Up!")
-                else:
-                    self.out_queue.put("Err: Server is not alive")
-
-            elif CommandSet.DEALLOCATE.value in next_line.lower():
-                print("requesting decommission...")
-                if not self.test_mc_status():
-                    print("Critical error! Server is not active")
-                    self.out_queue.put("Err: Server is not active")
-                else:
-                    targetIP = self.altparse_deallocate_msg(next_line)
-                    args = "NONE"
-                    if targetIP is None:
-                        self.out_queue.put("Deallocating Server")
-                        msg = FormattedMsg(MCCommandSet.KILL)
-                        self.check_and_send_msg(msg)
-
-                        # self.send_message_to_minecraft_api(msg)
+                elif CommandSet.MCALIVE.value in next_line.lower():
+                    print("is MC Alive?")
+                    if self.test_mc_status():
+                        self.out_queue.put("Server is Up!")
                     else:
-                        self.out_queue.put(f"Deallocating Server. Sending Players to {targetIP}")
-                        args = "{" + f'"IP":"{targetIP[0]}", "PORT":{targetIP[1]}' + "}"
-                        msg = FormattedMsg(MCCommandSet.DEALLOC, f"{targetIP[0]}:{targetIP[1]}")
-                        self.check_and_send_msg(msg)
-                        # self.send_message_to_minecraft_api(msg)
+                        self.out_queue.put("Err: Server is not alive")
 
-                    ## Update State
-                    self.state = MCServer.State.REQUESTED_DEACTIVATION
+                elif CommandSet.DEALLOCATE.value in next_line.lower():
+                    print("requesting decommission...")
+                    if not self.test_mc_status():
+                        print("Critical error! Server is not active")
+                        self.out_queue.put("Err: Server is not active")
+                    else:
+                        targetIP = self.altparse_deallocate_msg(next_line)
+                        args = "NONE"
+                        if targetIP is None:
+                            self.out_queue.put("Deallocating Server")
+                            msg = FormattedMsg(MCCommandSet.KILL)
+                            self.check_and_send_msg(msg)
 
-            elif CommandSet.PASSMSG.value in next_line.lower():
-                print("Sending msg to Server")
-                nl = re.sub(rf"{CommandSet.PASSMSG.value}", "", next_line.lower()).strip()
-                msg = FormattedMsg(MCCommandSet.SAY, nl)
-                if self.check_and_send_msg(msg):
-                    self.out_queue.put(f"Sent message to server")
+                            # self.send_message_to_minecraft_api(msg)
+                        else:
+                            self.out_queue.put(f"Deallocating Server. Sending Players to {targetIP}")
+                            args = "{" + f'"IP":"{targetIP[0]}", "PORT":{targetIP[1]}' + "}"
+                            msg = FormattedMsg(MCCommandSet.DEALLOC, f"{targetIP[0]}:{targetIP[1]}")
+                            self.check_and_send_msg(msg)
+                            # self.send_message_to_minecraft_api(msg)
+
+                        ## Update State
+                        self.state = MCServer.State.REQUESTED_DEACTIVATION
+
+                elif CommandSet.PASSMSG.value in next_line.lower():
+                    print("Sending msg to Server")
+                    nl = re.sub(rf"{CommandSet.PASSMSG.value}", "", next_line.lower()).strip()
+                    msg = FormattedMsg(MCCommandSet.SAY, nl)
+                    if self.check_and_send_msg(msg):
+                        self.out_queue.put(f"Sent message to server")
+                    else:
+                        self.out_queue.put(f"Error: Server is not active!")
+
+                elif CommandSet.MCSTATUS.value in next_line.lower():
+                    print("Testing: MCSTATUS")
+                    if self.test_mc_status():
+                        self.out_queue.put("Server is Up!")
+                    else:
+                        self.out_queue.put("Err: Server is not alive")
+
+                elif CommandSet.REQUESTSTATE.value in next_line.lower():
+                    print(f"Requesting MC State: {self.state.value}")
+                    self.test_mc_status() # Update the state.
+                    self.out_queue.put(f'{{"State":{self.state.value}}}')
+
                 else:
-                    self.out_queue.put(f"Error: Server is not active!")
-
-
-
-            elif CommandSet.MCSTATUS.value in next_line.lower():
-                print("Testing: MCSTATUS")
-                if self.test_mc_status():
-                    self.out_queue.put("Server is Up!")
-                else:
-                    self.out_queue.put("Err: Server is not alive")
-
-            elif CommandSet.REQUESTSTATE.value in next_line.lower():
-                print(f"Requesting MC State: {self.state.value}")
-                self.test_mc_status() # Update the state.
-                self.out_queue.put(f'{{"State":{self.state.value}}}')
-
-            else:
-                print("unknown command")
-                self.out_queue.put("Err: Unknown Command")
+                    print("unknown command")
+                    self.out_queue.put("Err: Unknown Command")
+            except KeyboardInterrupt:
+                print("Hmmm... a Keyboard Interrupt Was passed. Please send ABORT or KILL instead.")
 
         self.comms.kill()
         self.comms.join(5)
