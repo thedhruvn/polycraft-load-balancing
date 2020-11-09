@@ -216,6 +216,9 @@ class MCServer:
                 if now.hour == 3 and now.minute == 0 and now.second == 0:
                     self._launch_minecraft()
                     time.sleep(12)
+                elif now.minute % 10 == 0 and now.second == 0:
+                    self._launch_minecraft()
+                    time.sleep(12)
                 continue
 
             if CommandSet.HELLO.value in next_line.lower():
