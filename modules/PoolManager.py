@@ -7,6 +7,8 @@ from modules.BatchPool import BatchPool
 from modules.Server import Server
 from root import *
 from enum import Enum
+import asyncio
+import httpx
 
 
 class PoolManager:
@@ -98,14 +100,41 @@ class PoolManager:
         else:
             self.state = PoolManager.State.STARTING  # If the batchclient is null, the pool must be starting or closing.
 
+    @FutureWarning
+    async def __call_teams_api_async(self):
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = client.get(self.config.get("SERVER", "bestAPI"))
+
+                if resp.status_code == 200:
+                    if resp.text.startswith('{') and resp.text.endswith('}'):
+                        self.player_to_team_lookup = {key.lower(): value['team_id'] for key, value in resp.json().items() if
+                                                      isinstance(resp.json()[key], dict) and 'team_id' in resp.json()[
+                                                          key].keys()}
+                else:
+                    self.player_to_team_lookup = None
+                return
+            except requests.exceptions.RequestException as re:
+                print(re)
+
+
     def __call_teams_api(self):
-        resp = requests.get("https://beta.polycraftworld.com/api/best-teams/")
-        if resp.status_code == 200:
-            if resp.text.startswith('{') and resp.text.endswith('}'):
-                self.player_to_team_lookup = {key.lower(): value['team_id'] for key, value in resp.json().items() if isinstance(resp.json()[key], dict) and 'team_id' in resp.json()[key].keys()}
-        else:
+        try:
+            resp = requests.get("https://beta.polycraftworld.com/api/best-teams/")
+            if resp.status_code == 200:
+                if resp.text.startswith('{') and resp.text.endswith('}'):
+                    self.player_to_team_lookup = {key.lower(): value['team_id'] for key, value in resp.json().items() if isinstance(resp.json()[key], dict) and 'team_id' in resp.json()[key].keys()}
+            else:
+                self.player_to_team_lookup = None
+            return
+        except requests.exceptions.ConnectionError as re:
+            print(f"Error: Request connection error: {re}")
             self.player_to_team_lookup = None
-        return
+            return
+        except requests.exceptions.RequestException as re:
+            print(f"Error: Requests error: {re}")
+            self.player_to_team_lookup = None
+            return
 
     def update_server_list(self):
         """

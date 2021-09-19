@@ -222,6 +222,7 @@ class BatchPool:
         start_task = batchmodels.StartTask(
             command_line=helpers.wrap_commands_in_shell('linux', [
                 'whoami',
+                'set -e',
                 'printenv',
                 'usermod -aG sudo azureuser',
                 'sudo systemctl disable --now apt-daily.timer',
@@ -240,9 +241,9 @@ class BatchPool:
                 # Stop the crontabs from running
                 'sudo rm /var/spool/cron/crontabs/*',
                 # Taken from: https://stackoverflow.com/questions/45269225/ansible-playbook-fails-to-lock-apt/51919678#51919678
-                'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true',
-                'sudo apt-get -y purge unattended-upgrades',
-                'sudo apt-get -y update',
+                #'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true || 0',
+                wait_for_locks + 'sudo apt-get -y purge unattended-upgrades',
+                wait_for_locks + 'sudo apt-get -y update',
                 wait_for_locks + 'sudo apt-get install software-properties-common -y',
                 # 'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-add-repository universe',
                 wait_for_locks + 'sudo apt-add-repository universe',
