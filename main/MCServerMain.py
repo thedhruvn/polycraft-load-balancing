@@ -28,6 +28,7 @@ class CommandSet(Enum):
     ABORT = 'abort'
     REQUESTSTATE = 'request_state'
     PASSMSG = 'pass_msg'
+    RESTART = 'restart'
 
 
 class MCServer:
@@ -50,7 +51,8 @@ class MCServer:
         ACTIVE = 0
         REQUESTED_DEACTIVATION = 1
         DEACTIVATED = 2
-        CRASHED = 3
+        REQUESTED_RESTART = 3
+        CRASHED = 99
 
         def __lt__(self, other):
             if self.__class__ is other.__class__:
@@ -131,9 +133,26 @@ class MCServer:
     def __check_and_launch_minecraft(self):
 
         if self.test_mc_status():
-            return
+            return False
         else:
             return self._launch_minecraft()
+
+    def launch_minecraft_script(self, script_name: str = "run_polycraft_no_pp.sh", script_args: str ="oxygen"):
+        """
+        Runs a script to (re)launch minecraft.
+        NOTE: RUNS UNCHECKED!!!
+
+        :script_name: name of script in the scripts/ folder.
+        :return: True (always)
+        """
+        script = "./" + script_name
+        print(f"Running command: {script} {script_args}")
+        self.minecraftserver = subprocess.Popen(f'{script} {script_args}',
+                                                shell=True,
+                                                cwd=os.path.join(ROOT_DIR, 'scripts/'),
+                                                universal_newlines=True,)
+        return True
+
 
     def _launch_minecraft(self):
 
@@ -151,6 +170,8 @@ class MCServer:
                             # bufsize=1,  # DN: 0606 Added for performance
                             # universal_newlines=True,  # DN: 0606 Added for performance
                          )
+
+        return True
 
     def test_mc_status(self):
         try:
@@ -219,6 +240,16 @@ class MCServer:
                 # elif now.minute % 10 == 0 and now.second == 0:
                 #     self._launch_minecraft()
                 #     time.sleep(12)
+
+                ## Handle the restart request. Useful for CI.
+                elif self.state == self.State.REQUESTED_RESTART:
+                    print("Requested Restart of the system. Waiting for the server to launch")
+                    self.state = self.State.STARTING
+                    if not self.test_mc_status():
+
+                        print("Waiting for server to shutdown gracefully.")
+                        time.sleep(12)
+
                 continue
 
             if CommandSet.HELLO.value in next_line.lower():
@@ -274,7 +305,21 @@ class MCServer:
                 else:
                     self.out_queue.put(f"Error: Server is not active!")
 
+            elif CommandSet.RESTART.value in next_line.lower():
+                print("(Force) Restarting Minecraft...")
+                if not self.test_mc_status():
+                    print("Cannot restart - MC is not up.")
+                    self.out_queue.put("Error: Server is not active and cannot restart")
 
+                else:
+                    #print("Killing Server...")
+                    #self.check_and_send_msg(FormattedMsg(MCCommandSet.KILL))
+                    self.launch_minecraft_script("update_git_and_restart_polycraft.sh",
+                                                 script_args="$HOME/polycraft/ " +
+                                                             f"/home/polycraft/{self.config.get('SERVER','worldName')} "
+                                                             + f"{self.config.get('SERVER','worldName')}")
+                    self.state = MCServer.State.REQUESTED_RESTART
+                    self.out_queue.put("Restarting Server.")
 
             elif CommandSet.MCSTATUS.value in next_line.lower():
                 print("Testing: MCSTATUS")

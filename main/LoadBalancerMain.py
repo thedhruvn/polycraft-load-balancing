@@ -26,6 +26,7 @@ class CommandSet(Enum):
     LISTSERVERS = 'list_all'
     QUERYMC = 'poll_mc'
     STATE = "status"
+    BROADCAST = 'msg_all'
 
 
 class LoadBalancerMain:
@@ -151,6 +152,19 @@ class LoadBalancerMain:
                 elif CommandSet.HELLO.value in next_line:
                     print("SUCCESS")
                     self.replies_to_lobby.put("SUCCESS")
+
+                elif CommandSet.BROADCAST.value in next_line:
+                    print("Broadcasting msg to all servers...")
+                    valid = False
+                    for server in self.pool.servers:
+                        msg = re.sub(rf"{CommandSet.BROADCAST.value}", "", next_line).strip()
+                        msg = LBFormattedMsg(MCCommands.PASSMSG, msg)
+                        server.send_msg_threaded_to_server(msg)
+                        self.replies_to_lobby.put("Sent to All Server!")
+                        valid = True
+
+                    if not valid:
+                        self.replies_to_lobby.put("Err: Could not broadcast")
 
                 # Debug #
                 elif CommandSet.QUERYMC.value in next_line:
