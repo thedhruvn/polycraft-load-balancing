@@ -7,9 +7,10 @@
 pull_and_copy() {
   # Check if $1 is a git repository
   if [[ -d $1 ]]; then
-    cd $1; echo "Checking if $PWD is a git directory";
+    cd "$1" || return 1;
+    echo "Checking if $PWD is a git directory";
     git status --porcelain || return 1; # A fatal error if $PWD is not a git repo
-    if [[ git pull | grep -q "Already up to date" ]]; then
+    if git pull | grep -q "Already up to date"; then
       echo "repo is up to date";
       return 1
     fi
@@ -27,11 +28,13 @@ pull_and_copy() {
   return 1;
 
 }
+temp1=1;
+if [ "$(git rev-parse HEAD)" = "$(git ls-remote "$(git rev-parse --abbrev-ref @{u} | sed 's/\// /g')" | cut -f1)" ]; then
+  echo up to date;
+else
+  temp1=pull_and_copy "$1" "$2";
+fi
 
-
-
-temp1 = [ $(git rev-parse HEAD) = $(git ls-remote $(git rev-parse --abbrev-ref @{u} | \
-sed 's/\// /g') | cut -f1) ] && echo up to date || pull_and_copy $1 $2;
 
 # Check if the previous result was 0 (successful pull) or not
 # Confirm that there is a 3rd input argument to run polycraft no pp.
