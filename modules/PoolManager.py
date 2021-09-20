@@ -7,13 +7,15 @@ from modules.BatchPool import BatchPool
 from modules.Server import Server
 from root import *
 from enum import Enum
+from misc.ColorLogBase import ColorLogBase
 import asyncio
 import httpx
 
 
-class PoolManager:
+class PoolManager(ColorLogBase):
 
     def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
+        super().__init__()
         self.config = configparser.ConfigParser()
         self.config.read(config)
         # self.creds_raw_file = credentials
@@ -90,7 +92,7 @@ class PoolManager:
             except BatchErrorException as e:
                 self.state = PoolManager.State.TRANSITIONING
             except Exception as e:
-                print(e)
+                self.log.error(e)
                 self.state = PoolManager.State.TRANSITIONING
 
             self.teams_to_servers.clear()
@@ -115,7 +117,7 @@ class PoolManager:
                     self.player_to_team_lookup = None
                 return
             except requests.exceptions.RequestException as re:
-                print(re)
+                self.log.error(re)
 
 
     def __call_teams_api(self):
@@ -128,11 +130,11 @@ class PoolManager:
                 self.player_to_team_lookup = None
             return
         except requests.exceptions.ConnectionError as re:
-            print(f"Error: Request connection error: {re}")
+            self.log.error(f"Error: Request connection error: {re}")
             self.player_to_team_lookup = None
             return
         except requests.exceptions.RequestException as re:
-            print(f"Error: Requests error: {re}")
+            self.log.error(f"Error: Requests error: {re}")
             self.player_to_team_lookup = None
             return
 
@@ -221,7 +223,7 @@ class PoolManager:
         if self.state in [PoolManager.State.STABLE, PoolManager.State.FLAG_TO_SHIFT]:  # Run if stable (due to crash) or if the pool is flagged to shrink
             if server.state == Server.State.DEACTIVATED or server.state == Server.State.CRASHED:
                 if self.batchclient.remove_node_from_pool(server.node_id):   #  CONFIRMED this triggers allocation_state change!
-                    #  print(f"Pool State: {self.batchclient.client.pool.get(self.batchclient.pool_id).allocation_state.value}")
+                    #  self.log.debug(f"Pool State: {self.batchclient.client.pool.get(self.batchclient.pool_id).allocation_state.value}")
                     self.servers.remove(server)
                     return True
         return False

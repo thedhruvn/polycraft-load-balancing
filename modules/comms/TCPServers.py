@@ -3,19 +3,21 @@ import socketserver
 from socketserver import TCPServer
 import queue
 import threading
+from misc.ColorLogBase import ColorLogBase
 
 ENCODING = 'utf-8'
 
-class ThreadedTCPLobbyServer(TCPServer):
+class ThreadedTCPLobbyServer(TCPServer, ColorLogBase):
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True,
                  queue=None, in_queue=None):
+        ColorLogBase.__init__(self)
         self.out_queue = queue
         self.in_queue = in_queue
         TCPServer.__init__(self, server_address, RequestHandlerClass,
                            bind_and_activate=bind_and_activate)
 
 
-class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler):
+class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler, ColorLogBase):
     def __init__(self, request, client_address, server: ThreadedTCPLobbyServer):
         """
         Each StreamHandler is created on the fly whenever a message
@@ -25,6 +27,7 @@ class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler):
         :param client_address: ip address of the sender
         :param server: the Server reference to get the queues from.
         """
+        ColorLogBase.__init__(self)
         self.out_queue = server.out_queue
         self.in_queue = server.in_queue
         socketserver.StreamRequestHandler.__init__(self, request, client_address, server)
@@ -44,7 +47,7 @@ class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler):
             return
 
         cur_thread = threading.current_thread()
-        print(f"{cur_thread}: msg received: {command_from_lobby}")
+        self.log.debug(f"{cur_thread}: msg received: {command_from_lobby}")
         self.in_queue.put(command_from_lobby)
         self.process_response()
         self.finish()
@@ -66,5 +69,5 @@ class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler):
                 self.request.sendall(response)
                 sent_response = True
             except queue.Empty:
-                print("ERROR! This shouldn't happen")
+                self.log.error("ERROR! This shouldn't happen")
                 continue

@@ -10,13 +10,16 @@ from main.MCServerMain import CommandSet as MCCommands
 import os
 from root import *
 import threading
+from misc.ColorLogBase import ColorLogBase
 
 """
 Holds a server object and can run the main() function for the server object
 """
-class Server:
+class Server(ColorLogBase):
 
-    def __init__(self, ip, port, api_port, node_id, api_player_team=None, reattach = False, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
+    def __init__(self, ip, port, api_port, node_id, api_player_team=None, reattach=False,
+                 config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
+        super().__init__()
         if api_player_team is None:
             api_player_team = {}
         self.ip = ip
@@ -89,23 +92,23 @@ class Server:
                 # Continue onwards and update the player lists!
         except timeout:
             # The Server is not up yet.
-            print(f"[IsAlive]Server can't be accessed yet")
+            self.log.info(f"[IsAlive]Server can't be accessed yet")
             self.countfailures += 1
 
         except KeyError:
             # The status return doesn't have a players or online segment
-            print(f"Something weird with Status response: {stat.raw}")
+            self.log.error(f"Something weird with Status response: {stat.raw}")
 
         except ConnectionRefusedError:
-            print(f"Err: Connection Refused? Is Alive {self.ip}:{self.port}")
+            self.log.error(f"Err: Connection Refused? Is Alive {self.ip}:{self.port}")
             self.countfailures += 1
 
         except OSError:
-            print(f"Err: OS Error - no response: {self.ip}:{self.port}")
+            self.log.error(f"Err: OS Error - no response: {self.ip}:{self.port}")
             self.countfailures += 1
 
         except Exception as e:
-            print(f"Err: Something else happened:{self.ip}:{self.port} \n {e}")
+            self.log.error(f"Err: Something else happened:{self.ip}:{self.port} \n {e}")
             self.countfailures += 1
 
         return False
@@ -117,7 +120,7 @@ class Server:
         return -1
 
     def poll(self):
-        print(f"{datetime.datetime.now()} Running Poll: {self.id}")
+        self.log.info(f"{datetime.datetime.now()} Running Poll: {self.id}")
         if self.state == Server.State.INITIALIZING:
             #  Check to see if the server is up yet:
             if self._is_mc_alive():
@@ -160,22 +163,22 @@ class Server:
 
             except timeout:
                 # The Server is not up yet.
-                print(f"Error! Is Server Down?")
+                self.log.error(f"Error! Is Server Down?")
                 self.countfailures += 1
                 # self.state = Server.State.CRASHED
 
             except ConnectionRefusedError:
-                print(f"Err: Connection Refused - state STABLE? {self.ip}:{self.port}")
+                self.log.error(f"Err: Connection Refused - state STABLE? {self.ip}:{self.port}")
                 self.countfailures += 1
                 # self.state = Server.State.CRASHED
 
             except KeyError:
                 # The status return doesn't have a players or online segment
-                print(f"Something weird with Status response: {stat.raw}")
+                self.log.error(f"Something weird with Status response: {stat.raw}")
                 # self.countfailures += 1
 
             except Exception as e:
-                print(f"Something else went wrong... {e}")
+                self.log.error(f"Something else went wrong... {e}")
                 self.countfailures += 1
 
             if self.countfailures > self.maxFailsBeforeDown:
@@ -216,21 +219,21 @@ class Server:
 
             except timeout:
                 # The Server is not up yet.
-                print(f"Error! Is Server Down?")
+                self.log.error(f"Error! Is Server Down?")
                 self.countfailures += 1
                 # self.state = Server.State.CRASHED
                 # return
             except ConnectionRefusedError:
-                print(f"Err: Connection Refused? - Stable failed task {self.ip}:{self.port}")
+                self.log.error(f"Err: Connection Refused? - Stable failed task {self.ip}:{self.port}")
                 self.countfailures += 1
                 # self.state = Server.State.CRASHED
                 # return False
             except KeyError:
                 # The status return doesn't have a players or online segment
-                print(f"Something weird with Status response: {stat.raw}")
+                self.log.error(f"Something weird with Status response: {stat.raw}")
 
             except Exception as e:
-                print(f"Something else went wrong... {e}")
+                self.log.error(f"Something else went wrong... {e}")
                 self.countfailures += 1
                 # return
 
@@ -243,7 +246,7 @@ class Server:
             max_seconds = int(max_seconds_raw) if max_seconds_raw and max_seconds_raw.isdecimal() else 600
             delta = datetime.timedelta(seconds=max_seconds)
             if delta < (datetime.datetime.now() - self.last_request_time):
-                print("enough time has passed! We should now check to see if the server is behaving")
+                self.log.debug("enough time has passed! We should now check to see if the server is behaving")
                 self.state = Server.State.CONFIRMING_DEACTIVATION
 
             return
@@ -255,37 +258,37 @@ class Server:
             try:
                 stat = self.mcServer.status()
                 if stat.players.online > 0:
-                    print(f"Error: Something went wrong with {self.id}. Should we re-send the request? {stat.raw}")
+                    self.log.warning(f"Error: Something went wrong with {self.id}. Should we re-send the request? {stat.raw}")
                     # TODO: Resend the deactivation request.
                     return
                 else:
                     self.state = Server.State.DEACTIVATED       # No players online
             except timeout:
                 # The Server is down
-                print(f"Server {self.id} has been deactivated")
+                self.log.warning(f"Server {self.id} has been deactivated")
                 self.state = Server.State.DEACTIVATED
                 return
             except ConnectionRefusedError:
-                print(f"Server {self.id} has been deactivated")
+                self.log.error(f"Server {self.id} has been deactivated")
                 self.state = Server.State.DEACTIVATED
                 return
             except KeyError:
                 # The server isn't down, but the status return doesn't have a players or online segment
-                print(f"Something weird with Status response: {stat.raw}")
+                self.log.error(f"Something weird with Status response: {stat.raw}")
                 return
             except Exception as e:
-                print(f"Something else went wrong: {e}")
+                self.log.error(f"Something else went wrong: {e}")
                 return
 
         if self.state == Server.State.CRASHED:
-            print(f"This server is crashed! {self.id} - is it back up?")
+            self.log.warning(f"This server is crashed! {self.id} - is it back up?")
             if self._is_mc_alive():
                 self.state = Server.State.STABLE
             # TODO: Send msg to restart the server.
             return
 
         else:
-            print(f"This server has been deactivated! Please don't run  me anymore!")
+            self.log.info(f"This server has been deactivated! Please don't run  me anymore!")
             return
 
     def check_is_server_api_alive(self):
@@ -294,17 +297,17 @@ class Server:
             check_val = self.send_msg_to_server(LBFormattedMsg(MCCommands.HELLO))
             if check_val is not None and len(check_val) > 0:
                 if self.state == Server.State.STABLE_BUT_TASK_FAILED:
-                    print("yay! I'm back alive")
+                    self.log.debug("yay! I'm back alive")
                     self.state = Server.State.STABLE
 
                 return True
 
         except ConnectionRefusedError as e:
             if self.state == Server.State.STABLE:
-                print("error - unable to connect to API. Please restart me!")
+                self.log.error("error - unable to connect to API. Please restart me!")
                 self.state = Server.State.STABLE_BUT_TASK_FAILED
         except Exception as e:
-            print("General Error " + e)
+            self.log.error("General Error " + e)
 
         return False
 
@@ -332,13 +335,13 @@ class Server:
             newServer.state = Server.State.WAITING_FOR_MERGE
             self.state = Server.State.REQUESTED_DEACTIVATION
             self.last_request_time = datetime.datetime.now()
-            print("Transitioning Players to a new server")
+            self.log.info("Transitioning Players to a new server")
             msg = LBFormattedMsg(MCCommands.DEALLOCATE, f'{{"IP":"{newServer.ip}", "PORT":{newServer.port}}}')
             self.send_msg_threaded_to_server(msg)
 
             #  noTODO: send msg to server
         else:
-            print("Decommissioning this server")
+            self.log.warning("Decommissioning this server")
             self.state = Server.State.CONFIRMING_DEACTIVATION # No need to wait! Skip to the fun parts!
             self.last_request_time = datetime.datetime.now()
             msg = LBFormattedMsg(MCCommands.DEALLOCATE, "test Dealloc")
@@ -362,11 +365,11 @@ class Server:
             sock.connect((self.ip, self.api))
             sock.settimeout(2)
 
-            print("sending data to the server...")
+            self.log.debug("sending data to the server...")
             sock.sendall(bytes(lb_fmt_msg.msg + "\n", "utf-8"))
-            print("data sent!")
+            self.log.debug("data sent!")
             received = str(sock.recv(1024), "utf-8")
-            print(f"received data from the server: {received}")
+            self.log.debug(f"received data from the server: {received}")
             return received
             # self.assertEqual(received, expected_response)
 

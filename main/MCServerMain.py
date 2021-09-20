@@ -14,6 +14,7 @@ import socket
 from root import *
 from functools import total_ordering
 from modules.comms.MCMainToPCW import MCCommandSet, FormattedMsg
+from misc.ColorLogBase import ColorLogBase
 import time
 import datetime
 
@@ -31,8 +32,9 @@ class CommandSet(Enum):
     RESTART = 'restart'
 
 
-class MCServer:
-    def __init__(self,  config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'), **kwargs):
+class MCServer(ColorLogBase):
+    def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'), **kwargs):
+        super().__init__()
         self.config = configparser.ConfigParser()
         self.config.read(config)
         self.mcport = 25565
@@ -63,7 +65,7 @@ class MCServer:
     def _launch_comms(self):
         # in_queue = Queue()
         # out_queue = Queue()
-        print("launching comms")
+        self.log.debug("launching comms")
         lock = threading.Lock()
         self.comms = TCPQueueCommunicator(  in_queue=self.in_queue,
                                             out_queue=self.out_queue,
@@ -72,7 +74,7 @@ class MCServer:
 
         self.comms.setDaemon(True)
         self.comms.start()
-        print("Comms Launched")
+        self.log.info("Comms Launched")
 
     def _check_queues(self):
         """
@@ -86,7 +88,7 @@ class MCServer:
         # DN: Remove "blockInFront" data from PAL, as it just gunks up our PAL logs for no good reason.
         try:
             next_line = self.in_queue.get(False, timeout=0.025)
-            print(f"input: {next_line}")
+            self.log.debug(f"input: {next_line}")
             # self.PAL_log.message_strip(str(next_line))
             sys.stdout.flush()
             sys.stderr.flush()
@@ -122,11 +124,11 @@ class MCServer:
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect(('127.0.0.1', self.minecraft_api_port))
-            print(f"sending data to the server: {msg.msg}")
+            self.log.debug(f"sending data to the server: {msg.msg}")
             sock.sendall(bytes(msg.msg + "\n", "utf-8"))
-            print("data sent!")
+            self.log.debug("data sent!")
             received = str(sock.recv(1024), "utf-8")
-            print(f"received data from the server: {received}")
+            self.log.debug(f"received data from the server: {received}")
             return True
 
 
@@ -146,7 +148,7 @@ class MCServer:
         :return: True (always)
         """
         script = "./" + script_name
-        print(f"Running command: {script} {script_args}")
+        self.log.info(f"Running command: {script} {script_args}")
         self.minecraftserver = subprocess.Popen(f'{script} {script_args}',
                                                 shell=True,
                                                 cwd=os.path.join(ROOT_DIR, 'scripts/'),
@@ -160,7 +162,7 @@ class MCServer:
         # if not self.has_rest:
         #     script = './run_polycraft_no_pp.sh'
 
-        print(f"Did kwargs set has_rest? {self.has_rest}")
+        self.log.debug(f"Did kwargs set has_rest? {self.has_rest}")
 
         self.minecraftserver = subprocess.Popen(f'{script} oxygen',
                             shell=True,
@@ -177,7 +179,7 @@ class MCServer:
         try:
             serv = mcstatus.MinecraftServer.lookup("127.0.0.1:25565")
             val = serv.status()
-            print(val.raw)
+            self.log.debug(val.raw)
             # self.out_queue.put(val.raw)
             if self.state == MCServer.State.STARTING:
                 self.state = MCServer.State.ACTIVE
@@ -188,7 +190,7 @@ class MCServer:
             elif self.state == MCServer.State.REQUESTED_DEACTIVATION:
                 self.state = MCServer.State.DEACTIVATED
 
-            print("Err: Server is not up")
+            self.log.error("Err: Server is not up")
             return False
             # self.out_queue.put("Err: Server is not alive")
 
@@ -243,11 +245,11 @@ class MCServer:
 
                 ## Handle the restart request. Useful for CI.
                 elif self.state == self.State.REQUESTED_RESTART:
-                    print("Requested Restart of the system. Waiting for the server to launch")
+                    self.log.info("Requested Restart of the system. Waiting for the server to launch")
                     self.state = self.State.STARTING
                     if not self.test_mc_status():
 
-                        print("Waiting for server to shutdown gracefully.")
+                        self.log.info("Waiting for server to shutdown gracefully.")
                         time.sleep(12)
 
                 continue
@@ -256,26 +258,26 @@ class MCServer:
                 self.out_queue.put("I am awake")
 
             elif CommandSet.ABORT.value in next_line.lower():
-                print(f"abort received...")
+                self.log.warning(f"abort received...")
                 self.out_queue.put("Aborting...")
                 stay_alive = False
 
             elif CommandSet.LAUNCH.value in next_line.lower():
-                print(f"(Re)Launching MC Server")
+                self.log.warning(f"(Re)Launching MC Server")
                 self._launch_minecraft()
                 self.out_queue.put("Re-launching MC Server")
 
             elif CommandSet.MCALIVE.value in next_line.lower():
-                print("is MC Alive?")
+                self.log.debug("is MC Alive?")
                 if self.test_mc_status():
                     self.out_queue.put("Server is Up!")
                 else:
                     self.out_queue.put("Err: Server is not alive")
 
             elif CommandSet.DEALLOCATE.value in next_line.lower():
-                print("requesting decommission...")
+                self.log.warning("requesting decommission...")
                 if not self.test_mc_status():
-                    print("Critical error! Server is not active")
+                    self.log.error("Critical error! Server is not active")
                     self.out_queue.put("Err: Server is not active")
                 else:
                     targetIP = self.altparse_deallocate_msg(next_line)
@@ -297,7 +299,7 @@ class MCServer:
                     self.state = MCServer.State.REQUESTED_DEACTIVATION
 
             elif CommandSet.PASSMSG.value in next_line.lower():
-                print("Sending msg to Server")
+                self.log.info("Sending msg to Server")
                 nl = re.sub(rf"{CommandSet.PASSMSG.value}", "", next_line.lower()).strip()
                 msg = FormattedMsg(MCCommandSet.SAY, nl)
                 if self.check_and_send_msg(msg):
@@ -306,13 +308,13 @@ class MCServer:
                     self.out_queue.put(f"Error: Server is not active!")
 
             elif CommandSet.RESTART.value in next_line.lower():
-                print("(Force) Restarting Minecraft...")
+                self.log.warning("(Force) Restarting Minecraft...")
                 if not self.test_mc_status():
-                    print("Cannot restart - MC is not up.")
+                    self.log.error("Cannot restart - MC is not up.")
                     self.out_queue.put("Error: Server is not active and cannot restart")
 
                 else:
-                    #print("Killing Server...")
+                    #self.log.error("Killing Server...")
                     #self.check_and_send_msg(FormattedMsg(MCCommandSet.KILL))
                     self.launch_minecraft_script("update_git_and_restart_polycraft.sh",
                                                  script_args="$HOME/polycraft/ " +
@@ -322,19 +324,19 @@ class MCServer:
                     self.out_queue.put("Restarting Server.")
 
             elif CommandSet.MCSTATUS.value in next_line.lower():
-                print("Testing: MCSTATUS")
+                self.log.debug("Testing: MCSTATUS")
                 if self.test_mc_status():
                     self.out_queue.put("Server is Up!")
                 else:
                     self.out_queue.put("Err: Server is not alive")
 
             elif CommandSet.REQUESTSTATE.value in next_line.lower():
-                print(f"Requesting MC State: {self.state.value}")
+                self.log.debug(f"Requesting MC State: {self.state.value}")
                 self.test_mc_status() # Update the state.
                 self.out_queue.put(f'{{"State":{self.state.value}}}')
 
             else:
-                print("unknown command")
+                self.log.warning("unknown command")
                 self.out_queue.put("Err: Unknown Command")
 
         self.comms.kill()
@@ -343,5 +345,5 @@ class MCServer:
 
 if __name__ == '__main__':
     serv = MCServer(pp=False)
-    print(f"Launching MC Listener Thread on Port: {serv.api_port}")
+    serv.log.info(f"Launching MC Listener Thread on Port: {serv.api_port}")
     serv.run()

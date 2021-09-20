@@ -1,6 +1,6 @@
 import threading
 from modules.comms.TCPServers import *
-
+from misc.ColorLogBase import ColorLogBase
 PORT = 9007
 HOST = "0.0.0.0"
 
@@ -9,10 +9,11 @@ Thanks to the great dano: https://stackoverflow.com/questions/25245223/python-qu
 Deets on socketserver: https://docs.python.org/3/library/socketserver.html
 
 """
-class TCPQueueCommunicator(threading.Thread):
+class TCPQueueCommunicator(threading.Thread, ColorLogBase):
 
     def __init__(self, out_queue, in_queue, tm_lock, host=HOST, port=PORT, args=None, kwargs=None):
         threading.Thread.__init__(self, args, kwargs)
+        ColorLogBase.__init__(self)
         self.out_queue = out_queue
         self.recv_queue = in_queue   # Queue contains msgs received.
         self.tm_lock = tm_lock
@@ -25,7 +26,7 @@ class TCPQueueCommunicator(threading.Thread):
         self.server.shutdown()
 
     def run(self):
-        print(f"Initializing TCPServer on: {self.HOST}:{self.PORT}")
+        self.log.info(f"Initializing TCPServer on: {self.HOST}:{self.PORT}")
 
         self.server = ThreadedTCPLobbyServer((self.HOST, self.PORT),
                                              ThreadedTCPLobbyStreamHandler,

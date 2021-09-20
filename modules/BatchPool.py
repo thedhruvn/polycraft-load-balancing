@@ -7,17 +7,19 @@ from misc import helpers
 import configparser
 import datetime
 from root import *
+from misc.ColorLogBase import ColorLogBase
 
-class BatchPool:
+class BatchPool(ColorLogBase):
 
-    def __init__(self,  config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'),
-                        credentials=os.path.join(ROOT_DIR, 'configs/SECRET_paleast_credentials.cfg')):
+    def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'),
+                 credentials=os.path.join(ROOT_DIR, 'configs/SECRET_paleast_credentials.cfg')):
         """
         BatchPool Object contains a reference to the pool, a credentials object to authorize pool transactions,
         and a config object to
         :param config:
         :param credentials:
         """
+        super().__init__()
         self.config = configparser.ConfigParser()
         self.config.read(config)
         self.credentials = configparser.ConfigParser()
@@ -85,7 +87,7 @@ class BatchPool:
         return cmds + copy_mods + launch_server
 
     def remove_node_from_pool(self, node_id):
-        print(f"Attempting to remove node: {node_id}")
+        self.log.info(f"Attempting to remove node: {node_id}")
         try:
             self.client.pool.remove_nodes(pool_id=self.pool_id,
                       node_remove_parameter=batchmodels.NodeRemoveParameter(
@@ -94,10 +96,10 @@ class BatchPool:
             ))
             return True
         except BatchErrorException as e:
-            print(f"Something went wrong when attempting to remove a node! ID: {node_id} \n{e}")
+            self.log.error(f"Something went wrong when attempting to remove a node! ID: {node_id} \n{e}")
             return False
         except Exception as e:
-            print(f"Something went wrong when attempting to remove a node! ID: {node_id} \n{e}")
+            self.log.error(f"Something went wrong when attempting to remove a node! ID: {node_id} \n{e}")
             return False
 
     def expand_pool(self, size):
@@ -106,14 +108,14 @@ class BatchPool:
         :param size: num  of new nodes to expand towards
         :return: True if successful; False otherwise.
         """
-        print(f"Attempting to resize... {size}")
+        self.log.info(f"Attempting to resize... {size}")
         try:
             self.client.pool.resize(pool_id=self.pool_id, pool_resize_parameter=batchmodels.PoolResizeParameter(
                 target_dedicated_nodes=size
             ))
             return True
         except Exception as e:
-            print(f"something went wrong in the resize! {e.with_traceback()}")
+            self.log.error(f"something went wrong in the resize! {e.with_traceback()}")
             return False
 
     def add_task_to_start_server(self):

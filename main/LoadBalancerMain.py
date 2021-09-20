@@ -13,6 +13,7 @@ from json import JSONDecodeError
 import datetime
 from root import *
 import re
+from misc.ColorLogBase import ColorLogBase
 from main.MCServerMain import CommandSet as MCCommands
 
 
@@ -30,10 +31,12 @@ class CommandSet(Enum):
     RELOADALL = 'restart'
 
 
-class LoadBalancerMain:
+class LoadBalancerMain(ColorLogBase):
 
     def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'),
                  credentials=os.path.join(ROOT_DIR, 'configs/SECRET_paleast_credentials.cfg')):
+        
+        super().__init__()
         self.pool = PoolManager(config=config)
         self.config = self.pool.config
         self.lobbyThread = None
@@ -52,7 +55,7 @@ class LoadBalancerMain:
                                                 tm_lock=lock,
                                                 port=self.lobbyPort)
         self.lobbyThread.start()
-        print(f"Lobby thread launched: {self.lobbyPort}")
+        self.log.debug(f"Lobby thread launched: {self.lobbyPort}")
 
     def _check_queues(self):
         """
@@ -66,7 +69,7 @@ class LoadBalancerMain:
         # DN: Remove "blockInFront" data from PAL, as it just gunks up our PAL logs for no good reason.
         try:
             next_line = self.msgs_from_lobby.get(False, timeout=0.025)
-            print(f"input: {next_line}")
+            self.log.debug(f"input: {next_line}")
             # self.PAL_log.message_strip(str(next_line))
             sys.stdout.flush()
             sys.stderr.flush()
@@ -79,7 +82,7 @@ class LoadBalancerMain:
         if server is None:
             return '{"IP":"None", "PORT":0, "MSG": "' + msg + '"}'
         val = f'"IP":"{server.ip}", "PORT":{server.port}, "MSG": "{msg}"'
-        print('server Response: {' + val + '}\n')
+        self.log.debug('server Response: {' + val + '}\n')
         return '{' + val + '}\n'
 
     def main(self):
@@ -92,9 +95,9 @@ class LoadBalancerMain:
         initialized = self.pool.check_is_pool_steady()
         while not initialized and counter < max_retry_initialize:
             if is_new_pool:
-                print("waiting for initialization...")
+                self.log.debug("waiting for initialization...")
             else:
-                print("Existing Pool Detected. Reconnecting to: " + id)
+                self.log.debug("Existing Pool Detected. Reconnecting to: " + id)
             time.sleep(60)
             counter += 1
             self.pool.poll_servers_and_update()
@@ -123,11 +126,11 @@ class LoadBalancerMain:
                     pass
 
                 else:
-                    print("Load Balancer Still Initializing.")
+                    self.log.debug("Load Balancer Still Initializing.")
                     self.replies_to_lobby.put("Err: Load Balancer Connecting to Servers.")
 
                 if self.poll_servers(seconds_ticker, modifier):
-                    print(f"attempt: {ct} - are MC servers online?")
+                    self.log.debug(f"attempt: {ct} - are MC servers online?")
                     ct += 1
                     all_ready = self.pool.check_is_pool_steady()    # Ensure that the pool is stable, too!
                     for server in self.pool.servers:
@@ -135,7 +138,7 @@ class LoadBalancerMain:
                             all_ready = False
                     if all_ready:
                         self.state = LoadBalancerMain.State.STABLE
-                        print("Servers Online!")
+                        self.log.debug("Servers Online!")
 
             #  Case B: All Servers are stable - we can begin handling commands sent to us from the Polycraft Lobby
             else:
@@ -147,15 +150,15 @@ class LoadBalancerMain:
 
 
                 elif CommandSet.STATE.value in next_line:
-                    print("requested status...")
+                    self.log.debug("requested status...")
                     self.replies_to_lobby.put(f"State: {self.state.name}")
 
                 elif CommandSet.HELLO.value in next_line:
-                    print("SUCCESS")
+                    self.log.debug("SUCCESS")
                     self.replies_to_lobby.put("SUCCESS")
 
                 elif CommandSet.BROADCAST.value in next_line:
-                    print("Broadcasting msg to all servers...")
+                    self.log.debug("Broadcasting msg to all servers...")
                     valid = False
                     for server in self.pool.servers:
                         msg = re.sub(rf"{CommandSet.BROADCAST.value}", "", next_line).strip()
@@ -169,7 +172,7 @@ class LoadBalancerMain:
 
                 # Debug #
                 elif CommandSet.QUERYMC.value in next_line:
-                    print("sending msg to MCServer...")
+                    self.log.debug("sending msg to MCServer...")
                     valid = False
                     for server in self.pool.servers:
                         if str(server.port) in next_line:
@@ -184,7 +187,7 @@ class LoadBalancerMain:
                         self.replies_to_lobby.put("Err: Invalid Server addr.")
 
                 elif CommandSet.RELOADALL.value in next_line:
-                    print("Reloading Minecraft on all running nodes...")
+                    self.log.debug("Reloading Minecraft on all running nodes...")
 
                     for server in self.pool.servers:
                         server.send_msg_threaded_to_server(LBFormattedMsg(MCCommands.RESTART))
@@ -194,7 +197,7 @@ class LoadBalancerMain:
 
                 # Debug #
                 elif CommandSet.LISTSERVERS.value in next_line:
-                    print("Listing all servers")
+                    self.log.debug("Listing all servers")
                     result = "{"
                     for server in self.pool.servers:
                         result += f'"{server.id}":{{"api_port":{server.api}, "players":{server.playercount}, "state":"{server.state.name}"}}, "team_map":{{'
@@ -213,31 +216,31 @@ class LoadBalancerMain:
                         self.replies_to_lobby.put(self._serverResponseBuilder(server))
                         modifier += 1  # TODO: does this modifier crap even work? Should we add a skip counter instead?
                     except JSONDecodeError as e:
-                        print(f"Error! BAD Json From Minecraft {e}")
+                        self.log.debug(f"Error! BAD Json From Minecraft {e}")
                         self.replies_to_lobby.put(self._serverResponseBuilder(None))
                     except TypeError as e:
-                        print(f"Error! Type Error in Json Response: {e}")
+                        self.log.debug(f"Error! Type Error in Json Response: {e}")
                         self.replies_to_lobby.put(self._serverResponseBuilder(None, "Error! Bad Input"))
                     except Exception as e:
-                        print(f"Error! Unknown Problem {e}")
+                        self.log.debug(f"Error! Unknown Problem {e}")
                         self.replies_to_lobby.put(self._serverResponseBuilder(None, "Error! Unknown Problem"))
 
                 elif CommandSet.ADDNEW.value in next_line:
-                    print(f"Adding one server to the pool")
+                    self.log.debug(f"Adding one server to the pool")
                     if self.__add_server():
                         self.replies_to_lobby.put("Adding new server!")
                     else:
                         self.replies_to_lobby.put("Error - unable to add new server")
 
                 elif CommandSet.REMOVE.value in next_line:
-                    print(f"Removing One Server")
+                    self.log.debug(f"Removing One Server")
                     if self.__find_and_remove_server():
                         self.replies_to_lobby.put(f"Deallocating a server! {self.target_deallocation_server.id}")
                     else:
                         self.replies_to_lobby.put("Error - unable to remove a server")
 
                 else:
-                    print(f"Error! Unknown command!")
+                    self.log.debug(f"Error! Unknown command!")
                     self.replies_to_lobby.put(self._serverResponseBuilder(None, "Error! Unknown Command"))
 
                 modifier = self.handle_active_state(seconds_ticker, modifier)
@@ -432,7 +435,7 @@ class LoadBalancerMain:
         """
         # self.pool.poll_servers_and_update()
         if self.state not in [LoadBalancerMain.State.STABLE, LoadBalancerMain.State.RESTARTING_TASK]:
-            print("Err: LoadBalancer is not in a steady state for removal.")
+            self.log.debug("Err: LoadBalancer is not in a steady state for removal.")
             return False
 
         list_of_empty_servers = [srv for srv in self.pool.servers if srv.playercount == 0]
