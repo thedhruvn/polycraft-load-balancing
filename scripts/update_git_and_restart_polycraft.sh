@@ -16,7 +16,7 @@ pull_and_copy() {
   fi
   if [[ -d $1/scripts/ ]] && [[ -d $2/mods/ ]]; then
     rm -f $2/mods/*.jar
-    cp $1/scripts/*.jar $2/mods/
+    cp $1/mods/*.jar $2/mods/
     return 0
   else
     echo "Error! $1/scripts doesn't exist or $2/mods/ is not valid";
