@@ -1,2 +1,6 @@
 .idea/
 venv368/
+venv_actual/
+*__pycache__*
+*.txt
+SECRET*
