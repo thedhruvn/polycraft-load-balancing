@@ -4,3 +4,4 @@ venv_actual/
 *__pycache__*
 *.txt
 SECRET*
+spam*
