@@ -31,7 +31,7 @@ if [[ -d "$1" ]]; then
     echo "Checking if $PWD is a git directory";
     git status --porcelain || return 1; # A fatal error if $PWD is not a git repo
 
-  if [ "$(git rev-parse HEAD)" = "$(git ls-remote "$(git rev-parse --abbrev-ref @{u} | sed 's/\// /g')" | cut -f1)" ]; then
+  if [ $(git rev-parse HEAD) = $(git ls-remote $(git rev-parse --abbrev-ref @{u} | sed 's/\// /g') | cut -f1) ]; then
     echo up to date;
   else
     pull_and_copy "$1" "$2";
