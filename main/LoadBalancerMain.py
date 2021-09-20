@@ -27,6 +27,7 @@ class CommandSet(Enum):
     QUERYMC = 'poll_mc'
     STATE = "status"
     BROADCAST = 'msg_all'
+    RELOADALL = 'restart'
 
 
 class LoadBalancerMain:
@@ -181,6 +182,15 @@ class LoadBalancerMain:
 
                     if not valid:
                         self.replies_to_lobby.put("Err: Invalid Server addr.")
+
+                elif CommandSet.RELOADALL.value in next_line:
+                    print("Reloading Minecraft on all running nodes...")
+
+                    for server in self.pool.servers:
+                        server.send_msg_threaded_to_server(LBFormattedMsg(MCCommands.RESTART))
+
+                    self.replies_to_lobby.put("Sent to All Servers!")
+
 
                 # Debug #
                 elif CommandSet.LISTSERVERS.value in next_line:
