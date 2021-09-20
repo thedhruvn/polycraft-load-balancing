@@ -40,7 +40,7 @@ if [[ -d "$1" ]]; then
   # Check if the previous result was 0 (successful pull) or not
   # Confirm that there is a 3rd input argument to run polycraft no pp.
   if [[ temp1 -eq 0 ]] && [[ $# -gt 2 ]]; then
-    bash run_polycraft_no_pp.sh "$3"
+    bash scripts/run_polycraft_no_pp.sh "$3"
   fi
 
 else
