@@ -1,3 +1,4 @@
+import logging
 from enum import Enum
 import datetime
 from mcstatus import MinecraftServer
@@ -20,6 +21,7 @@ class Server(ColorLogBase):
     def __init__(self, ip, port, api_port, node_id, api_player_team=None, reattach=False,
                  config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg')):
         super().__init__()
+        self.updateLevel(logging.INFO)
         if api_player_team is None:
             api_player_team = {}
         self.ip = ip
