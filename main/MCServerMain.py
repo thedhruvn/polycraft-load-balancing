@@ -258,9 +258,24 @@ class MCServer(ColorLogBase):
                 self.out_queue.put("I am awake")
 
             elif CommandSet.ABORT.value in next_line.lower():
-                self.log.warning(f"abort received...")
-                self.out_queue.put("Aborting...")
-                stay_alive = False
+                self.log.warning(f"abort received... checking if MC is running:")
+                if self.state == self.State.REQUESTED_RESTART:
+                    self.log.info("Aborting this script as server restarts...")
+                    self.out_queue.put("Aborting...")
+                    stay_alive = False
+                elif self.test_mc_status():
+                    self.log.warning("Alert: Aborting this script without killing MC?")
+                    self.out_queue.put("Aborting...")
+                    stay_alive = False
+                elif self.state == self.State.STARTING:
+                    self.log.warning("Alert: Aborting this script while still starting MC.")
+                    self.out_queue.put("Aborting...")
+                    stay_alive = False
+                else:
+                    self.log.error("MC not running. [FORCE] abort this script without state loss...?")
+                    self.out_queue.put("ALERT! MC Not Alive")
+                    #stay_alive = False
+
 
             elif CommandSet.LAUNCH.value in next_line.lower():
                 self.log.warning(f"(Re)Launching MC Server")

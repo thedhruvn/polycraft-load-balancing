@@ -191,6 +191,8 @@ class LoadBalancerMain(ColorLogBase):
 
                     for server in self.pool.servers:
                         server.send_msg_threaded_to_server(LBFormattedMsg(MCCommands.RESTART))
+                        # Also Quit!
+                        server.send_msg_threaded_to_server(LBFormattedMsg(MCCommands.ABORT))
 
                     self.replies_to_lobby.put("Sent to All Servers!")
 
