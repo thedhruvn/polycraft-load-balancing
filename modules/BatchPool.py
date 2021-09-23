@@ -65,10 +65,13 @@ class BatchPool(ColorLogBase):
         copy_mods = [
             'cd $HOME/polycraft/mods',
             'cp *.jar /home/polycraft/oxygen/mods',
-            'cd $HOME/polycraft/scripts/',
-            'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
-            'cd $HOME/polycraft/misc',
-            'cp log4j2_server.xml /home/polycraft/oxygen',          # Copy the log4j2_server xml to the root.
+            # 'cd $HOME/polycraft/uploads/',
+            'cp $HOME/polycraft/uploads/* /home/polycraft/oxygen/',   # Copy everything from uploads to oxygen
+            # 'cd $HOME/polycraft/scripts/',
+            # 'cp server.properties /home/polycraft/oxygen/',         # Copy the server.properties to the cloud
+            # 'cd $HOME/polycraft/misc',
+            # 'cp log4j2_server.xml /home/polycraft/oxygen',          # Copy the log4j2_server xml to the root.
+            # 'cp ops.json /home/polycraft/oxygen',                   # copy ops to the right folder.
             f'sed -i "s+/REPLACEME/+/{self.config.get("SERVER","fileShareFolder")}/logs/$AZ_BATCH_NODE_ID/+g" /home/polycraft/oxygen/log4j2_server.xml',
             'cd $HOME',
 

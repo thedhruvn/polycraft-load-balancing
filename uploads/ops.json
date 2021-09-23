@@ -1,0 +1,62 @@
+[
+  {
+    "uuid": "e2e02af5-6c5d-4f1c-87af-ebbaf1dbafb3",
+    "name": "MathHue",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "ef5db304-c368-4108-9a35-2fd0a072b73d",
+    "name": "User",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "79c2941c-bb83-492f-afc6-d5dd7a9ee2d7",
+    "name": "polycraftgamer",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "3a51ec82-e81f-44f3-8ab4-baea75331396",
+    "name": "Rohelium",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "7bc4a925-866e-416e-a2d0-d8080554d9f3",
+    "name": "StephenGss",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "fc5468ed-06ec-4e86-9521-69d2cd3faaae",
+    "name": "Jeff_Starduster",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "a8fc1939-c182-4dfc-9f63-c2403a38a12f",
+    "name": "Folenza",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "112d2943-b01d-496c-acb5-578025975b72",
+    "name": "Sabateur",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "8715816a-dcfd-447f-bfa0-608bc1c8247a",
+    "name": "Phanact",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "c1feb3ef-9d6f-4a69-8939-e7bece14bbc1",
+    "name": "CmdtBojangles",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  }
+]
