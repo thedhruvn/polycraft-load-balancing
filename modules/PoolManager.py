@@ -5,6 +5,8 @@ from azure.batch.models import ComputeNodeState
 
 from modules.BatchPool import BatchPool
 from modules.Server import Server
+from modules.Exceptions import ServerError
+
 from root import *
 from enum import Enum
 from misc.ColorLogBase import ColorLogBase
@@ -277,4 +279,4 @@ class PoolManager(ColorLogBase):
         for srv in self.servers:
             if srv.eligible_for_new_teams():
                 return srv
-        raise   # Throw an error if no servers are available - this should NEVER happen.
+        raise ServerError("No Eligible Servers available. Is the pool down?")
