@@ -2,7 +2,7 @@ import threading
 from modules.comms.TCPServers import *
 from misc.ColorLogBase import ColorLogBase
 from psutil import process_iter
-from signal import SIGTERM, SIGKILL
+from signal import SIGTERM
 PORT = 9007
 HOST = "0.0.0.0"
 
@@ -34,7 +34,7 @@ class TCPQueueCommunicator(threading.Thread, ColorLogBase):
             for conns in proc.connections(kind='inet'):
                 if conns.laddr.port == self.PORT:
                     self.log.warning(f"Killing process {proc} to clear port: {self.PORT}")
-                    proc.send_signal(SIGKILL)
+                    proc.send_signal(SIGTERM)
                     bflag = True
         if not bflag:
             self.log.info(f"No other processes on {self.PORT} detected.")
