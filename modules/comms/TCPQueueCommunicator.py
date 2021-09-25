@@ -1,4 +1,7 @@
 import threading
+
+import psutil
+
 from modules.comms.TCPServers import *
 from misc.ColorLogBase import ColorLogBase
 from psutil import process_iter
@@ -28,14 +31,21 @@ class TCPQueueCommunicator(threading.Thread, ColorLogBase):
         self.server.shutdown()
 
     def clear_other_processes(self):
-        self.log.info("Force-clearing other ports...")
+        self.log.info("Attempting to force-clear other ports...")
         bflag = False
-        for proc in process_iter():
-            for conns in proc.connections(kind='inet'):
-                if conns.laddr.port == self.PORT:
-                    self.log.warning(f"Killing process {proc} to clear port: {self.PORT}")
-                    proc.send_signal(SIGTERM)
-                    bflag = True
+        try:
+            for proc in process_iter():
+                for conns in proc.connections(kind='inet'):
+                    if conns.laddr.port == self.PORT:
+                        self.log.warning(f"Killing process {proc} to clear port: {self.PORT}")
+                        proc.send_signal(SIGTERM)
+                        bflag = True
+        except psutil.AccessDenied as e:
+            self.log.warning(f"Error - unable to force-close other processes. {e}")
+            return
+        except Exception as e:
+            self.log.error(f"Error - unknown exception occurred: {e}")
+            return
         if not bflag:
             self.log.info(f"No other processes on {self.PORT} detected.")
 
