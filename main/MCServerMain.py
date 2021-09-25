@@ -255,6 +255,7 @@ class MCServer(ColorLogBase):
 
             if not self.comms.is_alive():
                 self.log.error("Unable to run the API Thread. Do I need a fresh node?")
+                stay_alive = False
 
             if CommandSet.HELLO.value in next_line.lower():
                 self.out_queue.put("I am awake")
