@@ -251,8 +251,10 @@ class MCServer(ColorLogBase):
 
                         self.log.info("Waiting for server to shutdown gracefully.")
                         time.sleep(12)
-
                 continue
+
+            if not self.comms.is_alive():
+                self.log.error("Unable to run the API Thread. Do I need a fresh node?")
 
             if CommandSet.HELLO.value in next_line.lower():
                 self.out_queue.put("I am awake")

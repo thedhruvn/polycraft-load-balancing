@@ -1,6 +1,8 @@
 import threading
 from modules.comms.TCPServers import *
 from misc.ColorLogBase import ColorLogBase
+from psutil import process_iter
+from signal import SIGTERM, SIGKILL
 PORT = 9007
 HOST = "0.0.0.0"
 
@@ -25,13 +27,34 @@ class TCPQueueCommunicator(threading.Thread, ColorLogBase):
     def kill(self):
         self.server.shutdown()
 
+    def clear_other_processes(self):
+        self.log.info("Force-clearing other ports...")
+        bflag = False
+        for proc in process_iter():
+            for conns in proc.connections(kind='inet'):
+                if conns.laddr.port == self.PORT:
+                    self.log.warning(f"Killing process {proc} to clear port: {self.PORT}")
+                    proc.send_signal(SIGKILL)
+                    bflag = True
+        if not bflag:
+            self.log.info(f"No other processes on {self.PORT} detected.")
+
     def run(self):
         self.log.info(f"Initializing TCPServer on: {self.HOST}:{self.PORT}")
 
+        # Force-remove other running processes on this port, just in case.
+        # https://stackoverflow.com/questions/20691258/
+        self.clear_other_processes()
+
         self.server = ThreadedTCPLobbyServer((self.HOST, self.PORT),
                                              ThreadedTCPLobbyStreamHandler,
+                                             bind_and_activate=False,               # Manually activate this one.
                                              in_queue=self.recv_queue,
                                              queue=self.out_queue)
+
+        # Sets the ability to reuse a port if it's closed: https://www.py4u.net/discuss/12199
+        self.server.activate()
+
         with self.server as server:
             server.serve_forever()
 

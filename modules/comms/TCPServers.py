@@ -7,6 +7,7 @@ from misc.ColorLogBase import ColorLogBase
 
 ENCODING = 'utf-8'
 
+
 class ThreadedTCPLobbyServer(TCPServer, ColorLogBase):
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True,
                  queue=None, in_queue=None):
@@ -15,6 +16,15 @@ class ThreadedTCPLobbyServer(TCPServer, ColorLogBase):
         self.in_queue = in_queue
         TCPServer.__init__(self, server_address, RequestHandlerClass,
                            bind_and_activate=bind_and_activate)
+
+    def activate(self):
+        self.allow_reuse_address = True
+        try:
+            self.server_bind()
+            self.server_activate()
+        except:
+            self.server_close()
+            raise
 
 
 class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler, ColorLogBase):
@@ -55,19 +65,25 @@ class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler, ColorLogB
     def process_response(self):
         """
         Wait for a response from the main thread to appear in the outbound queue. Send that message to the msg. sender.
+
+        UPDATE 9.25 - setting a timeout to allow for the server to close gracefully when necessary.
+
         :return:
         """
         sent_response = False
+        max_time = 60  # max timeout in seconds
         while not sent_response:
             try:
-                # response_to_lobby = self.out_queue.get(False, timeout=0.025)
-                response_to_lobby = self.out_queue.get(True)
-                # self.PAL_log.message_strip(str(response_to_lobby))
+                # response_to_lobby = self.out_queue.get(True)
+                response_to_lobby = self.out_queue.get(False, timeout=max_time)
                 sys.stdout.flush()
                 sys.stderr.flush()
                 response = bytes(response_to_lobby, ENCODING)
                 self.request.sendall(response)
                 sent_response = True
             except queue.Empty:
-                self.log.error("ERROR! This shouldn't happen")
-                continue
+                self.log.error(f"Main thread took more than {max_time} to process. Please re-send command.")
+                response = bytes("ERROR", ENCODING)
+                self.request.sendall(response)
+                sent_response = True
+

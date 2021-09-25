@@ -309,7 +309,7 @@ class Server(ColorLogBase):
                 self.log.error("error - unable to connect to API. Please restart me!")
                 self.state = Server.State.STABLE_BUT_TASK_FAILED
         except Exception as e:
-            self.log.error("General Error " + e)
+            self.log.error(f"General Error: {e}")
 
         return False
 
