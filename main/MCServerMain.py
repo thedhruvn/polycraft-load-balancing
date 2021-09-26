@@ -152,7 +152,7 @@ class MCServer(ColorLogBase):
         if self.test_mc_status():
             return False
         else:
-            return self._launch_minecraft()
+            return self.launch_minecraft_script()
 
     def launch_minecraft_script(self, script_name: str = "run_polycraft_no_pp.sh", script_args: str ="oxygen"):
         """

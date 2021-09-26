@@ -313,7 +313,9 @@ class LoadBalancerMain(ColorLogBase):
                     self.state = LoadBalancerMain.State.STABLE
 
                 for server in crashList:
-                    self.__remove_specific_server(server)   # Confirmed - pool changes immediately!
+                    self.log.warning(f"Attempting to uncrash server at: {server.ip}:{server.port}")
+                    self._uncrash_server(server)
+                    # self.__remove_specific_server(server)   # Confirmed - pool changes immediately!
 
             # Case 3:   Request has been made for the Pool to increase in size. Poll to see if this has changed.
             #           detect when the new server has MC up and running and shift back to STABLE after that.
@@ -466,7 +468,15 @@ class LoadBalancerMain(ColorLogBase):
 
     def _uncrash_server(self, server):
         self.log.warning(f"Restarting MC on server after crashing: {server}")
-        server.send_msg_threaded_to_server(LBFormattedMsg(MCCommands.LAUNCH))
+        try:
+            server.send_msg_to_server(LBFormattedMsg(MCCommands.LAUNCH))
+        except ConnectionRefusedError as e:
+            self.log.warning(f"Restarting API on MC Server, as that is down as well.")
+            self.pool.batchclient.add_task_to_start_server()
+            self.state = LoadBalancerMain.State.RESTARTING_TASK
+            # force state to be not-crashed until the API restarts so the value can be updated.
+            server.state = Server.State.STABLE_BUT_TASK_FAILED
+
 
 
 
