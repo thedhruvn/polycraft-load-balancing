@@ -18,7 +18,22 @@ from misc.ColorLogBase import ColorLogBase
 import time
 import datetime
 
+
 class CommandSet(Enum):
+    """
+    List of commands that are supported by this API.
+
+    HELLO: test message
+    MCALIVE: checks if the Server is Active
+    MCSTATUS: same as MCALIVE
+    LAUNCH: runs the script "launch_polycraft_no_pp.sh" in the scripts folder that (re)launches MinecraftServer
+    SHUTDOWN: stops the MC Server immediately and forces players to disconnect
+    DEALLOCATE: stops the MC Server and rebalances players to another node
+    ABORT: Kills this API (but only if the MCServer State is not CRASHED or undergoing deallocation
+    REQUESTSTATE: returns the state of the MCServer
+    PASSMSG: sends a message via chat to all players on the connected MC Server
+    RESTART: not used.
+    """
 
     HELLO = 'hello'
     MCALIVE = 'mc_alive'
@@ -29,7 +44,7 @@ class CommandSet(Enum):
     ABORT = 'abort'
     REQUESTSTATE = 'request_state'
     PASSMSG = 'pass_msg'
-    RESTART = 'restart'
+    # RESTART = 'restart'
 
 
 class MCServer(ColorLogBase):
@@ -61,10 +76,10 @@ class MCServer(ColorLogBase):
                 return self.value < other.value
             return NotImplemented
 
-
     def _launch_comms(self):
-        # in_queue = Queue()
-        # out_queue = Queue()
+        """
+        Starts the TCP Thread that communicates between this API and the Minecraft Server.
+        """
         self.log.debug("launching comms")
         lock = threading.Lock()
         self.comms = TCPQueueCommunicator(  in_queue=self.in_queue,
@@ -155,7 +170,7 @@ class MCServer(ColorLogBase):
                                                 universal_newlines=True,)
         return True
 
-
+    @DeprecationWarning
     def _launch_minecraft(self):
 
         script = './run_polycraft_no_pp.sh'
@@ -176,6 +191,13 @@ class MCServer(ColorLogBase):
         return True
 
     def test_mc_status(self):
+        """
+        Key function that pings the MinecraftServer to see if it is running or not.
+
+        Updates the state of the system as necessary. Always queries localhost:25565.
+
+        :return: True if the server is active or starting.
+        """
         try:
             serv = mcstatus.MinecraftServer.lookup("127.0.0.1:25565")
             val = serv.status()
@@ -227,6 +249,11 @@ class MCServer(ColorLogBase):
         return None
 
     def run(self):
+        """
+        Main API that manages the MCServer Communications between the Load Balancer and the Minecraft Server.
+
+        Supports Several Commands - see Enum above.
+        """
         stay_alive = True
         self._launch_comms()
         self.__check_and_launch_minecraft()
@@ -237,11 +264,8 @@ class MCServer(ColorLogBase):
                 time.sleep(0.05)
                 now = datetime.datetime.now()
                 if now.hour == 3 and now.minute == 0 and now.second == 0:
-                    self._launch_minecraft()
+                    self.launch_minecraft_script()
                     time.sleep(12)
-                # elif now.minute % 10 == 0 and now.second == 0:
-                #     self._launch_minecraft()
-                #     time.sleep(12)
 
                 ## Handle the restart request. Useful for CI.
                 elif self.state == self.State.REQUESTED_RESTART:
@@ -254,13 +278,26 @@ class MCServer(ColorLogBase):
                 continue
 
             if not self.comms.is_alive():
+                """
+                CASE: TCP Listener thread crashes. Kill this API immediately.
+                
+                Load Balancer will auto-restart this API.
+                """
                 self.log.error("Unable to run the API Thread. Do I need a fresh node?")
                 stay_alive = False
 
             if CommandSet.HELLO.value in next_line.lower():
+                """
+                CASE: Test command to API
+                """
                 self.out_queue.put("I am awake")
 
             elif CommandSet.ABORT.value in next_line.lower():
+                """
+                CASE: Load Balancer wants this API to shut down.
+                
+                TODO: handle case where MC is crashed or decommissioned. Right now, this doesn't abort.
+                """
                 self.log.warning(f"abort received... checking if MC is running:")
                 if self.state == self.State.REQUESTED_RESTART:
                     self.log.info("Aborting this script as server restarts...")
@@ -279,13 +316,23 @@ class MCServer(ColorLogBase):
                     self.out_queue.put("ALERT! MC Not Alive")
                     #stay_alive = False
 
-
             elif CommandSet.LAUNCH.value in next_line.lower():
-                self.log.warning(f"(Re)Launching MC Server")
-                self._launch_minecraft()
-                self.out_queue.put("Re-launching MC Server")
+                """
+                Case: Load Balancer requests node to launch MC again.
+                """
+                self.log.warning(f"received request for (Re)Launching MC Server")
+                if self.state in (MCServer.State.ACTIVE, MCServer.State.CRASHED):
+                    self.launch_minecraft_script()
+                    self.state = MCServer.State.REQUESTED_RESTART
+                    self.out_queue.put("Re-launching MC Server")
+                else:
+                    self.log.error(f"Current state not compatible with relaunch request: {self.state}")
+                    self.out_queue.put("Unable to (Re)launch - please wait for compatible state")
 
             elif CommandSet.MCALIVE.value in next_line.lower():
+                """
+                Case: Load Balancer requests state of MC API
+                """
                 self.log.debug("is MC Alive?")
                 if self.test_mc_status():
                     self.out_queue.put("Server is Up!")
@@ -293,6 +340,9 @@ class MCServer(ColorLogBase):
                     self.out_queue.put("Err: Server is not alive")
 
             elif CommandSet.DEALLOCATE.value in next_line.lower():
+                """
+                Case: Load Balancer requests this node to be decommisioned
+                """
                 self.log.warning("requesting decommission...")
                 if not self.test_mc_status():
                     self.log.error("Critical error! Server is not active")
@@ -317,6 +367,9 @@ class MCServer(ColorLogBase):
                     self.state = MCServer.State.REQUESTED_DEACTIVATION
 
             elif CommandSet.PASSMSG.value in next_line.lower():
+                """
+                Case: Load Balancer tries to send message to all players in the server
+                """
                 self.log.info("Sending msg to Server")
                 nl = re.sub(rf"{CommandSet.PASSMSG.value}", "", next_line.lower()).strip()
                 msg = FormattedMsg(MCCommandSet.SAY, nl)
@@ -326,14 +379,18 @@ class MCServer(ColorLogBase):
                     self.out_queue.put(f"Error: Server is not active!")
 
             elif CommandSet.RESTART.value in next_line.lower():
+                """
+                Case: Load balancer requests this API to pull from git and restart minecraft (new jar, etc.)
+                
+                NOTE: for now, this command will not restart this API. Load Balancer needs to send a ABORT command
+                to request this API to close itself and then respawn a new API task.
+                """
                 self.log.warning("(Force) Restarting Minecraft...")
                 if not self.test_mc_status():
                     self.log.error("Cannot restart - MC is not up.")
                     self.out_queue.put("Error: Server is not active and cannot restart")
 
                 else:
-                    #self.log.error("Killing Server...")
-                    #self.check_and_send_msg(FormattedMsg(MCCommandSet.KILL))
                     self.launch_minecraft_script("update_git_and_restart_polycraft.sh",
                                                  script_args="$HOME/polycraft/ " +
                                                              f"/home/polycraft/{self.config.get('SERVER','worldName')} "
@@ -342,6 +399,9 @@ class MCServer(ColorLogBase):
                     self.out_queue.put("Restarting Server.")
 
             elif CommandSet.MCSTATUS.value in next_line.lower():
+                """
+                Does the same thing as MCALIVE. TODO: deprecate?
+                """
                 self.log.debug("Testing: MCSTATUS")
                 if self.test_mc_status():
                     self.out_queue.put("Server is Up!")
@@ -349,6 +409,9 @@ class MCServer(ColorLogBase):
                     self.out_queue.put("Err: Server is not alive")
 
             elif CommandSet.REQUESTSTATE.value in next_line.lower():
+                """
+                Case: Load Balancer attempts to synchronize MC API State with Load Balancer
+                """
                 self.log.debug(f"Requesting MC State: {self.state.value}")
                 self.test_mc_status() # Update the state.
                 self.out_queue.put(f'{{"State":{self.state.value}}}')

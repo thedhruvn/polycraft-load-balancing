@@ -285,7 +285,8 @@ class LoadBalancerMain(ColorLogBase):
                     pass    # TODO: Confirm that the pool's state changes to TRANSITIONING
                     # self.pool.flag_transition = True
                 for server in crashList:
-                    self.__remove_specific_server(server)
+                    self._uncrash_server(server)
+                    # self.__remove_specific_server(server)
 
                 for server in restartAPIlist:
                     self.pool.batchclient.add_task_to_start_server()
@@ -462,6 +463,12 @@ class LoadBalancerMain(ColorLogBase):
                 return True
 
         return False
+
+    def _uncrash_server(self, server):
+        self.log.warning(f"Restarting MC on server after crashing: {server}")
+        server.send_msg_threaded_to_server(LBFormattedMsg(MCCommands.LAUNCH))
+
+
 
 
 if __name__ == '__main__':
