@@ -5,3 +5,4 @@ venv_actual/
 *.txt
 SECRET*
 spam*
+venv/
