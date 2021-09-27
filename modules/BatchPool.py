@@ -201,12 +201,12 @@ class BatchPool(ColorLogBase):
         min_count = self.config.get('POOL', 'mincount')
 
         image_reference = batchmodels.ImageReference(
-            virtual_machine_image_id="/subscriptions/889566d5-6e5d-4d31-a82d-b60603b3e50b/resourceGroups/polycraft-game/providers/Microsoft.Compute/galleries/polycraftImgGallery/images/polycraftBestGameServerV1/versions/1.0.0"
+            virtual_machine_image_id="/subscriptions/889566d5-6e5d-4d31-a82d-b60603b3e50b/resourceGroups/polycraft-game/providers/Microsoft.Compute/galleries/polycraftImgGallery/images/polycraftBestGameServerV1/versions/2.0.0"
         )
 
         vmc = batchmodels.VirtualMachineConfiguration(
             image_reference=image_reference,
-            node_agent_sku_id="batch.node.ubuntu 18.04"
+            node_agent_sku_id="batch.node.ubuntu 20.04"
         )
 
         users = [
@@ -235,19 +235,19 @@ class BatchPool(ColorLogBase):
                 'sudo systemctl daemon-reload',
                 'cd /home/polycraft',
                 'chmod -R 777 *',
-                'rm /home/polycraft/oxygen/mods/*.jar',
+                'rm /home/polycraft/oxygen/mods/*.jar || true',
                 'cd /home/polycraft/oxygen/',
                 'echo "[DEBUG] removing helium..."',
                 'ls -l',
-                f'sudo rm -rf /home/polycraft/oxygen/{self.config.get("SERVER","worldName")}',
-                'sudo rm -f *.zip',
+                f'sudo rm -rf /home/polycraft/oxygen/{self.config.get("SERVER","worldName")} || true',
+                'sudo rm -f *.zip || true',
                 'echo "[DEBUG] removed helium?"',
                 'ls -l',
                 # Stop the crontabs from running
-                'sudo rm /var/spool/cron/crontabs/*',
+                'sudo rm /var/spool/cron/crontabs/* || true',
                 # Taken from: https://stackoverflow.com/questions/45269225/ansible-playbook-fails-to-lock-apt/51919678#51919678
                 # 'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true',
-                wait_for_locks + 'sudo apt-get -y purge unattended-upgrades',
+                # wait_for_locks + 'sudo apt-get -y purge unattended-upgrades',
                 wait_for_locks + 'sudo apt-get -y update',
                 wait_for_locks + 'sudo apt-get install software-properties-common -y',
                 # 'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-add-repository universe',
