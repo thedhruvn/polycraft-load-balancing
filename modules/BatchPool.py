@@ -246,7 +246,7 @@ class BatchPool(ColorLogBase):
                 # Stop the crontabs from running
                 'sudo rm /var/spool/cron/crontabs/*',
                 # Taken from: https://stackoverflow.com/questions/45269225/ansible-playbook-fails-to-lock-apt/51919678#51919678
-                #'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true || 0',
+                'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true',
                 wait_for_locks + 'sudo apt-get -y purge unattended-upgrades',
                 wait_for_locks + 'sudo apt-get -y update',
                 wait_for_locks + 'sudo apt-get install software-properties-common -y',
