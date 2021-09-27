@@ -75,7 +75,7 @@ class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler, ColorLogB
         while not sent_response:
             try:
                 # response_to_lobby = self.out_queue.get(True)
-                response_to_lobby = self.out_queue.get(False, timeout=max_time)
+                response_to_lobby = self.out_queue.get(True, timeout=max_time)
                 sys.stdout.flush()
                 sys.stderr.flush()
                 response = bytes(response_to_lobby, ENCODING)

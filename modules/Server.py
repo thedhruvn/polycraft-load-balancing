@@ -33,7 +33,8 @@ class Server(ColorLogBase):
         self.id = f"{self.ip}:{self.port}"
         self.teams = []
         self.players = []
-        self.player_team = {}
+        self.player_team = {}                               # Map from Minecraft UUID to teamID
+        self.pretty_player_team = {}                        # map from minecraft username to teamID
         self.master_player_team_map = api_player_team
         self.playercount = 0
         if not reattach:
@@ -146,12 +147,14 @@ class Server(ColorLogBase):
 
                 # Update player and team arrays
                 self.player_team = {player: team for player, team in self.player_team.items() if player in playersdetected.keys()}
+                self.pretty_player_team = {player: team for player, team in self.pretty_player_team.items() if player in playersdetected.values()}
 
                 if len(self.player_team) < len(playersdetected):
                     players_to_search = {player: name for player, name in playersdetected.items() if player not in self.player_team}
                     for player, name in players_to_search.items():
                         team2 = self._get_team_for_player(name)
                         self.player_team.update({player: team2})
+                        self.pretty_player_team.update({name: team2})
 
 
                 self.players = list(self.player_team.keys())

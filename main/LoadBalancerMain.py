@@ -78,6 +78,48 @@ class LoadBalancerMain(ColorLogBase):
 
         return str(next_line, TCPServers.ENCODING, 'ignore')
 
+    def _list_all_servers_response(self):
+        """
+        :return: Returns a JSON formatted object that lists all Servers connected to the lobby and any teams on the cluster
+
+        Result Format (for parsing by other members):
+        {
+            "servers": {
+                "20.81.82.153:44000": {
+                    "api_port": 44500,
+                    "players": 2,
+                    "state": "STABLE",
+                    "player_map": {
+                        "polycraftgamer": 9999,
+                        "Encke": 9999
+                    }
+                }
+            },
+            "team_map": {
+                "9999": "20.81.82.153:44000"
+            }
+        }
+        """
+        result = '{"servers": {'
+        for server in self.pool.servers:
+            result += f'"{server.id}":{{"api_port":{server.api}, "players":{server.playercount}, ' \
+                      f'"state":"{server.state.name}", "player_map": {json.dumps(server.pretty_player_team, indent=None)}}}'
+            if server != self.pool.servers[-1]:
+                # Add a trailing comma if there are more servers to append to this list
+                result += ','
+        result += '}'
+
+        # Only include a team map if there are teams playing on the server.
+        if self.pool.teams_to_servers:
+            result += ', "team_map": {'
+            for team, server in self.pool.teams_to_servers.items():
+                result += f'"{team}":"{server.id}"'
+                if team != list(self.pool.teams_to_servers.keys())[-1]:
+                    result += ', '
+            result += "}"
+        result += "}\n"
+        return result
+
     def _serverResponseBuilder(self, server: Server = None, msg: str = ""):
         if server is None:
             return '{"IP":"None", "PORT":0, "MSG": "' + msg + '"}'
@@ -200,13 +242,25 @@ class LoadBalancerMain(ColorLogBase):
                 # Debug #
                 elif CommandSet.LISTSERVERS.value in next_line:
                     self.log.debug("Listing all servers")
-                    result = "{"
-                    for server in self.pool.servers:
-                        result += f'"{server.id}":{{"api_port":{server.api}, "players":{server.playercount}, "state":"{server.state.name}"}}, "team_map":{{'
-                    for team, server in self.pool.teams_to_servers.items():
-                        result += f'"{team}":"{server.id}",'
-                    result += "}"
+                    result = self._list_all_servers_response()
+                    self.log.debug(f"Response: {result}")
                     self.replies_to_lobby.put(result)
+                    # result = '{"servers": {'
+                    # for server in self.pool.servers:
+                    #     result += f'"{server.id}":{{"api_port":{server.api}, "players":{server.playercount}, ' \
+                    #               f'"state":"{server.state.name}", "player_map": {json.dumps(server.pretty_player_team, indent=4)}}}'
+                    #     if server != self.pool.servers[-1]:
+                    #         result += ','
+                    # result += '}'
+                    # if self.pool.teams_to_servers:
+                    #     result += ', "team_map": {'
+                    #     for team, server in self.pool.teams_to_servers.items():
+                    #         result += f'"{team}":"{server.id}"'
+                    #         if team != list(self.pool.teams_to_servers.keys())[-1]:
+                    #             result += ', '
+                    #     result += "}"
+                    # result += "}"
+                    # self.replies_to_lobby.put(result)
 
                 elif CommandSet.SERVERFORTEAM.value in next_line:
                     try:
