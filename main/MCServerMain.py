@@ -44,7 +44,7 @@ class CommandSet(Enum):
     ABORT = 'abort'
     REQUESTSTATE = 'request_state'
     PASSMSG = 'pass_msg'
-    # RESTART = 'restart'
+    RESTART = 'restart'
 
 
 class MCServer(ColorLogBase):
