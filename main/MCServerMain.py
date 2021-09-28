@@ -257,6 +257,7 @@ class MCServer(ColorLogBase):
         stay_alive = True
         self._launch_comms()
         self.__check_and_launch_minecraft()
+
         while stay_alive:
             next_line = self._check_queues()
 
