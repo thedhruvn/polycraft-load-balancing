@@ -264,7 +264,7 @@ class MCServer(ColorLogBase):
             if next_line is None or next_line == '':
                 time.sleep(0.05)
                 now = datetime.datetime.now()
-                if now.hour == 3 and now.minute == 0 and now.second == 0:
+                if now.hour == 9 and now.minute == 0 and now.second == 0:
                     self.launch_minecraft_script()
                     time.sleep(12)
 
