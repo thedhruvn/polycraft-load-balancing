@@ -71,7 +71,7 @@ class ThreadedTCPLobbyStreamHandler(socketserver.StreamRequestHandler, ColorLogB
         :return:
         """
         sent_response = False
-        max_time = 60  # max timeout in seconds
+        max_time = 1440  # max timeout in seconds
         while not sent_response:
             try:
                 # response_to_lobby = self.out_queue.get(True)

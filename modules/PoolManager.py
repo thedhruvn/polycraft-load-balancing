@@ -124,6 +124,7 @@ class PoolManager(ColorLogBase):
 
     def __call_teams_api(self):
         try:
+            self.log.info("Calling the BEST API")
             resp = requests.get("https://beta.polycraftworld.com/api/best-teams/")
             if resp.status_code == 200:
                 if resp.text.startswith('{') and resp.text.endswith('}'):
