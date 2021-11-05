@@ -178,6 +178,8 @@ class LoadBalancerMain(ColorLogBase):
                     for server in self.pool.servers:
                         if server.state < Server.State.STABLE:
                             all_ready = False
+                            time.sleep(1)
+                            break
                     if all_ready:
                         self.state = LoadBalancerMain.State.STABLE
                         self.log.debug("Servers Online!")
