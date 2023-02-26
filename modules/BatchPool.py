@@ -273,7 +273,7 @@ class BatchPool(ColorLogBase):
                 # 'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true',
                 # wait_for_locks + 'sudo apt-get -y purge unattended-upgrades',
                 wait_for_locks + 'sudo apt-get -y update',
-                wait_for_locks + 'sudo apt-get install -y software-properties-common python3-pip',
+                wait_for_locks + 'sudo apt-get install -y software-properties-common python3-pip openjdk-8-jdk',
                 # 'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-add-repository universe',
                 wait_for_locks + 'sudo apt-add-repository universe',
                 # Mount the Polycraft Game FileShare
