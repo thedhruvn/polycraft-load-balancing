@@ -12,7 +12,8 @@ from misc.ColorLogBase import ColorLogBase
 ### BEST Game server application ###
 BEST_APPLICATION_ID = 'best-game-server'
 BEST_VERSION = '1'
-BEST_APPLICATION_DIR = '$AZ_BATCH_APP_PACKAGE_' + BEST_APPLICATION_ID + '_' + BEST_VERSION
+BEST_APPLICATION_ID_FIXED = 'best_game_server'
+BEST_APPLICATION_DIR = '$AZ_BATCH_APP_PACKAGE_' + BEST_APPLICATION_ID_FIXED + '_' + BEST_VERSION
 
 class BatchPool(ColorLogBase):
 
@@ -249,7 +250,7 @@ class BatchPool(ColorLogBase):
                 'echo "[DEBUG] make polycraft dir"',
                 'mkdir /home/polycraft',
                 'cd /home/polycraft',
-                'echo "[DEBUG] copy server files "' + BEST_APPLICATION_DIR,
+                'echo "[DEBUG] copy server files ' + BEST_APPLICATION_DIR + '"',
                 'cp -r ' + BEST_APPLICATION_DIR + '/* .',
                 'ls -l',
                 'echo "[DEBUG] unzip server files"',
@@ -272,7 +273,7 @@ class BatchPool(ColorLogBase):
                 # 'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true',
                 # wait_for_locks + 'sudo apt-get -y purge unattended-upgrades',
                 wait_for_locks + 'sudo apt-get -y update',
-                wait_for_locks + 'sudo apt-get install software-properties-common -y',
+                wait_for_locks + 'sudo apt-get install -y software-properties-common python3-pip',
                 # 'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-add-repository universe',
                 wait_for_locks + 'sudo apt-add-repository universe',
                 # Mount the Polycraft Game FileShare
