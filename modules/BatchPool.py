@@ -9,6 +9,12 @@ import datetime
 from root import *
 from misc.ColorLogBase import ColorLogBase
 
+### BEST Game server application ###
+BEST_APPLICATION_ID = 'best-game-server'
+BEST_VERSION = '1'
+BEST_APPLICATION_ID_FIXED = 'best_game_server'
+BEST_APPLICATION_DIR = '$AZ_BATCH_APP_PACKAGE_' + BEST_APPLICATION_ID_FIXED + '_' + BEST_VERSION
+
 class BatchPool(ColorLogBase):
 
     def __init__(self, config=os.path.join(ROOT_DIR, 'configs/azurebatch.cfg'),
@@ -200,8 +206,16 @@ class BatchPool(ColorLogBase):
         api_port = self.config.get('POOL', 'api_port')
         min_count = self.config.get('POOL', 'mincount')
 
+        application_package_references = [
+            batchmodels.ApplicationPackageReference(application_id=BEST_APPLICATION_ID,
+                                                    version=BEST_VERSION)
+        ]
+
         image_reference = batchmodels.ImageReference(
-            virtual_machine_image_id="/subscriptions/889566d5-6e5d-4d31-a82d-b60603b3e50b/resourceGroups/polycraft-game/providers/Microsoft.Compute/galleries/polycraftImgGallery/images/polycraftBestGameServerV1/versions/2.0.0"
+            publisher="Canonical",
+            offer="0001-com-ubuntu-server-focal",
+            sku="20_04-lts-gen2",
+            version="latest"
         )
 
         vmc = batchmodels.VirtualMachineConfiguration(
@@ -233,7 +247,17 @@ class BatchPool(ColorLogBase):
                 'sudo systemctl disable --now apt-daily.timer',
                 'sudo systemctl disable --now apt-daily-upgrade.timer',
                 'sudo systemctl daemon-reload',
+                'echo "[DEBUG] make polycraft dir"',
+                'mkdir /home/polycraft',
                 'cd /home/polycraft',
+                'echo "[DEBUG] copy server files ' + BEST_APPLICATION_DIR + '"',
+                'cp -r ' + BEST_APPLICATION_DIR + '/* .',
+                'ls -l',
+                'echo "[DEBUG] unzip server files"',
+                'ls -l',
+                'tar -xvf oxygen.tar.gz',
+                'ls -l',
+                'echo "[DEBUG] update permissions to non-best practices"',
                 'chmod -R 777 *',
                 'rm /home/polycraft/oxygen/mods/*.jar || true',
                 'cd /home/polycraft/oxygen/',
@@ -249,7 +273,7 @@ class BatchPool(ColorLogBase):
                 # 'sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true',
                 # wait_for_locks + 'sudo apt-get -y purge unattended-upgrades',
                 wait_for_locks + 'sudo apt-get -y update',
-                wait_for_locks + 'sudo apt-get install software-properties-common -y',
+                wait_for_locks + 'sudo apt-get install -y software-properties-common python3-pip openjdk-8-jdk',
                 # 'while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 1; done; sudo apt-add-repository universe',
                 wait_for_locks + 'sudo apt-add-repository universe',
                 # Mount the Polycraft Game FileShare
@@ -329,7 +353,8 @@ class BatchPool(ColorLogBase):
             virtual_machine_configuration=vmc,
             start_task=start_task,
             user_accounts=users,
-            network_configuration=net_config
+            network_configuration=net_config,
+            application_package_references=application_package_references,
         )
 
         helpers.create_pool_if_not_exist(self.client, pool)
