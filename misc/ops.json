@@ -58,5 +58,11 @@
     "name": "CmdtBojangles",
     "level": 4,
     "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "112384b6-2f5e-47da-86c2-3bb084885f82",
+    "name": "ProfessorVoit",
+    "level": 4,
+    "bypassesPlayerLimit": false
   }
 ]
